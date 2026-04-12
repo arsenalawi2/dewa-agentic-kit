@@ -55,7 +55,7 @@ def _is_after_hours(ts):
     return local.hour < 9 or local.hour >= 18
 
 # ── Config ──
-SCRIPT_VERSION = "2.1.0"
+SCRIPT_VERSION = "2.2.0"
 PLAYER_NAME = os.environ.get("PLAYER_NAME", "")
 LEADERBOARD_URL = os.environ.get("LEADERBOARD_URL", "https://leaderboard.hadismac.com")
 PUSH_INTERVAL = int(os.environ.get("PUSH_INTERVAL", "300"))
@@ -179,6 +179,34 @@ def detect_project_from_msg(msg):
     return None
 
 
+def detect_project_from_files(file_paths):
+    """Detect project name from the file paths touched in a session."""
+    if not file_paths:
+        return None
+    home = str(Path.home())
+    project_votes = {}
+    for fp in file_paths:
+        if not fp.startswith(home):
+            continue
+        relative = fp[len(home):].strip("/")
+        parts = relative.split("/")
+        if not parts or not parts[0]:
+            continue
+        candidate = parts[0].lower()
+        if candidate in SKIP_DIRS or candidate.startswith("."):
+            # Try second level
+            if len(parts) > 1 and parts[1] and parts[1].lower() not in SKIP_DIRS:
+                candidate = parts[1]
+            else:
+                continue
+        else:
+            candidate = parts[0]  # keep original case
+        project_votes[candidate] = project_votes.get(candidate, 0) + 1
+    if not project_votes:
+        return None
+    return max(project_votes, key=project_votes.get)
+
+
 def detect_project_description(proj_name):
     """Try to read a description from common project files."""
     home = Path.home()
@@ -268,6 +296,7 @@ def parse_jsonl(filepath):
                 "cache_write": 0,
                 "tool_calls": {},
                 "file_hashes": set(),
+                "file_extensions": {},
             }
             per_day[day_key] = b
         b["timestamps"].append(ts)
@@ -447,6 +476,11 @@ def parse_jsonl(filepath):
                                         # 8-char hash keeps payload small; collisions near-impossible for per-user scale
                                         fh = hashlib.md5(fp.encode()).hexdigest()[:8]
                                         day_bucket["file_hashes"].add(fh)
+                                    # After the unique_files tracking
+                                    if day_bucket is not None:
+                                        ext = os.path.splitext(fp)[1].lower()
+                                        if ext and len(ext) <= 10:  # reasonable extension length
+                                            day_bucket["file_extensions"][ext] = day_bucket["file_extensions"].get(ext, 0) + 1
     except OSError:
         pass
 
@@ -481,9 +515,15 @@ def parse_jsonl(filepath):
             "cache_write": b["cache_write"],
             "tool_calls": dict(b["tool_calls"]),
             "file_hashes": sorted(b["file_hashes"]),
+            "file_extensions": dict(b.get("file_extensions", {})),
         }
 
     dominant_project = max(project_votes, key=project_votes.get) if project_votes else None
+    # Fix A: if project is None or "Other", try to detect from file paths
+    if not dominant_project or dominant_project == "Other":
+        file_project = detect_project_from_files(unique_files)
+        if file_project:
+            dominant_project = file_project
 
     return {
         "human_prompts": human, "api_calls": api,
@@ -555,6 +595,11 @@ def merge_daily_buckets(target, source):
         hset = set(t.get("file_hashes") or [])
         hset.update(src.get("file_hashes") or [])
         t["file_hashes"] = sorted(hset)
+        # Merge file_extensions
+        t_ext = t.get("file_extensions") or {}
+        for ext, count in (src.get("file_extensions") or {}).items():
+            t_ext[ext] = t_ext.get(ext, 0) + count
+        t["file_extensions"] = t_ext
         # First/last HH:MM across sessions for the same day
         sf, sl = src.get("first_hhmm", ""), src.get("last_hhmm", "")
         if sf and (not t["first_hhmm"] or sf < t["first_hhmm"]):
@@ -836,9 +881,6 @@ def collect_all_stats():
             totals["model_breakdown"][family]["cost"], 2
         )
 
-    # Compute quality score
-    totals["quality_score"] = compute_quality_score(totals)
-
     # Trim daily buckets to the last 90 days (GST)
     today_gst = datetime.now(timezone.utc).astimezone(GST).date()
     cutoff = today_gst - timedelta(days=90)
@@ -846,6 +888,35 @@ def collect_all_stats():
         k: v for k, v in totals["daily_buckets"].items()
         if _parse_day_key(k) and _parse_day_key(k) >= cutoff
     }
+
+    # Source C: collect tech stack data from projects' public/tech-stack.json
+    tech_stacks = {}
+    home = Path.home()
+    for proj_name in by_project.keys():
+        if proj_name == "Other":
+            continue
+        # Try common project locations
+        for base in [home, home / "Projects"]:
+            ts_path = base / proj_name / "public" / "tech-stack.json"
+            if ts_path.exists():
+                try:
+                    ts_data = json.loads(ts_path.read_text())
+                    tech_stacks[proj_name] = ts_data
+                except Exception:
+                    pass
+                break
+
+    totals["tech_stacks"] = tech_stacks
+
+    # Aggregate file extensions across all days
+    all_extensions = {}
+    for day_key, bucket in totals["daily_buckets"].items():
+        for ext, count in bucket.get("file_extensions", {}).items():
+            all_extensions[ext] = all_extensions.get(ext, 0) + count
+    totals["file_extensions"] = all_extensions
+
+    # Compute quality score
+    totals["quality_score"] = compute_quality_score(totals)
 
     # Sessions sorted by time (most recent first)
     totals["sessions_data"] = sorted(
