@@ -307,10 +307,10 @@ const TECH_DETAILS = {
     cost: 'Free for personal (up to 100 devices)',
     lockInRisk: 'Medium',
     adoptionStatus: 'Strategic standard for remote access + public exposure',
-    desc: 'Hadi\'s Mac mini exposes a small set of services to the internet via Tailscale Funnel — al-sheraa-phasing on :8443, claude-leaderboard on :10000, and project-architecture on :443. Also gives Hadi remote SSH access from any device on his tailnet without port-forwarding.',
+    desc: 'Hadi\'s Mac mini exposes services to the internet via Cloudflare Tunnel — leaderboard at leaderboard.hadismac.com. Also gives Hadi remote SSH access from any device on his tailnet without port-forwarding.',
     specs: [
-      { label: 'Hostname', value: 'hadis-mac-mini.tailf8f871.ts.net' },
-      { label: 'Active funnels', value: '3' },
+      { label: 'Domain', value: 'leaderboard.hadismac.com' },
+      { label: 'CDN', value: 'Cloudflare' },
       { label: 'Tailnet size', value: '< 10 devices' },
       { label: 'TLS', value: 'Auto (Let\'s Encrypt via Tailscale)' },
     ],
