@@ -25,14 +25,14 @@ Copy each directory inside skills/ to: ~/.claude/skills/
 
 If these skill directories already exist, overwrite them.
 
-STEP 4: Install the leaderboard hook
---------------------------------------
+STEP 4: Install the leaderboard hook + hourly cron
+----------------------------------------------------
 Copy hooks/push_stats.py to: ~/.claude/push_stats.py
 
 Then ask the user for their display name (for the leaderboard).
 
-Add this hook to ~/.claude/settings.json under the "hooks" key.
-If settings.json doesn't exist, create it. If it exists, merge carefully.
+A) Add this Stop hook to ~/.claude/settings.json under the "hooks" key.
+   If settings.json doesn't exist, create it. If it exists, merge carefully.
 
 {
   "hooks": {
@@ -46,6 +46,16 @@ If settings.json doesn't exist, create it. If it exists, merge carefully.
 }
 
 Replace <their-name> with the name they gave you.
+
+B) Set up an hourly cron so stats push even during long-running sessions.
+   Without this, a session that runs for 10 hours won't push data until it closes.
+
+   Run this command to add the cron (it preserves any existing crontab):
+
+   (crontab -l 2>/dev/null; echo "0 * * * * PLAYER_NAME=\"<their-name>\" python3 ~/.claude/push_stats.py --force > /dev/null 2>&1") | sort -u | crontab -
+
+   Replace <their-name> with the same name used in the Stop hook above.
+   The `sort -u` prevents duplicate entries if this is run more than once.
 
 STEP 5: Install the project management template
 -------------------------------------------------
@@ -100,6 +110,7 @@ Check that ALL of these exist. If any are missing, go back and fix it:
   [x] ~/.claude/templates/reference/ArchitecturePage.vue
   [x] ~/.claude/.dak_version
   [x] ~/.claude/settings.json has the Stop hook configured
+  [x] Hourly cron is set up (verify with: crontab -l | grep push_stats)
 
 Then run a quick test of the leaderboard hook:
   PLAYER_NAME="<their-name>" python3 ~/.claude/push_stats.py --force
@@ -115,9 +126,10 @@ Tell the user what was installed:
   3. Guides: stack.md, git-workflow.md, deploy.md, api-patterns.md
   4. Skills: /owasp-security for security reviews
   5. Templates: vibe-stats, journey, architecture pages (auto-updated)
-  6. Leaderboard hook — reports usage stats + writes local data files
-  7. Project management template — living PROJECT.md
-  8. Auto-update — kit updates itself from the server hourly
+  6. Leaderboard hook — reports usage stats at session end + writes local data files
+  7. Hourly cron — pushes stats even during long-running sessions
+  8. Project management template — living PROJECT.md
+  9. Auto-update — kit updates itself from the server hourly
 
 Tell them:
   - The design system, tech stack, git workflow, and API patterns are
