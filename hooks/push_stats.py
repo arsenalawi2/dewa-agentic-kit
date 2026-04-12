@@ -180,10 +180,34 @@ def detect_project_from_msg(msg):
 
 
 def detect_project_from_files(file_paths):
-    """Detect project name from the file paths touched in a session."""
+    """Detect project name from the file paths touched in a session.
+    Detects home dir from the paths themselves (not Path.home()) so this
+    works inside Docker where the host home differs from container home."""
     if not file_paths:
         return None
-    home = str(Path.home())
+
+    # Detect home directory from common path patterns (/Users/X/, /home/X/, C:\\Users\\X\\)
+    home = None
+    for fp in file_paths:
+        if "/Users/" in fp:
+            # macOS: /Users/hadi/... → home = /Users/hadi
+            idx = fp.index("/Users/")
+            parts = fp[idx:].split("/")
+            if len(parts) >= 3:
+                home = "/".join(parts[:3])  # /Users/hadi
+                break
+        elif "/home/" in fp:
+            # Linux: /home/user/... → home = /home/user
+            idx = fp.index("/home/")
+            parts = fp[idx:].split("/")
+            if len(parts) >= 3:
+                home = "/".join(parts[:3])
+                break
+
+    if not home:
+        # Fallback to Path.home() (works when running natively, not in Docker)
+        home = str(Path.home())
+
     project_votes = {}
     for fp in file_paths:
         if not fp.startswith(home):
@@ -192,10 +216,10 @@ def detect_project_from_files(file_paths):
         parts = relative.split("/")
         if not parts or not parts[0]:
             continue
-        candidate = parts[0].lower()
-        if candidate in SKIP_DIRS or candidate.startswith("."):
-            # Try second level
-            if len(parts) > 1 and parts[1] and parts[1].lower() not in SKIP_DIRS:
+        candidate_lower = parts[0].lower()
+        if candidate_lower in SKIP_DIRS or candidate_lower.startswith("."):
+            # Try second level for dirs like .claude, Projects, etc.
+            if len(parts) > 1 and parts[1] and parts[1].lower() not in SKIP_DIRS and not parts[1].startswith("."):
                 candidate = parts[1]
             else:
                 continue
