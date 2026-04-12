@@ -16,15 +16,46 @@ Env vars:
 
 import hashlib
 import json
+import math
 import os
 import sys
 import ssl
 import time
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+# GST timezone for daily bucketing (UAE = UTC+4, no DST)
+GST = timezone(timedelta(hours=4))
+
+
+def _bucket_date(ts):
+    """Return YYYY-MM-DD string for a datetime in GST."""
+    return ts.astimezone(GST).strftime("%Y-%m-%d")
+
+
+def _parse_day_key(day_key):
+    """Parse YYYY-MM-DD to a date, returning None if invalid."""
+    try:
+        return datetime.strptime(day_key, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _is_after_hours(ts):
+    """
+    Working hours: Sun-Thu 09:00-18:00 GST.
+    Python weekday(): 0=Mon..6=Sun. Friday=4, Saturday=5 are weekend.
+    """
+    local = ts.astimezone(GST)
+    wd = local.weekday()
+    if wd in (4, 5):  # Fri, Sat
+        return True
+    # Sun-Thu: check hour
+    return local.hour < 9 or local.hour >= 18
+
 # ── Config ──
+SCRIPT_VERSION = "2.0.0"
 PLAYER_NAME = os.environ.get("PLAYER_NAME", "")
 LEADERBOARD_URL = os.environ.get("LEADERBOARD_URL", "https://hadis-mac-mini.tailf8f871.ts.net:10000")
 PUSH_INTERVAL = int(os.environ.get("PUSH_INTERVAL", "300"))
@@ -212,6 +243,76 @@ def parse_jsonl(filepath):
     total_prompt_count = 0
     prompt_previews = []  # [{timestamp, preview, model}] — human prompts with context
 
+    # Per-day buckets for the Productivity page (GST = UTC+4).
+    # day_key: YYYY-MM-DD. Each bucket carries everything needed to compute a
+    # monthly Q score: active_sec (via timestamps), prompts, api_calls, after_hours,
+    # lines, tokens (input/output/cache), tool_calls dict, and file_hashes set
+    # for monthly unique-file counting (set-union across days).
+    per_day = {}
+    def _get_day_bucket(ts):
+        day_key = _bucket_date(ts)
+        b = per_day.get(day_key)
+        if b is None:
+            b = {
+                "timestamps": [],
+                "prompts": 0,
+                "api_calls": 0,
+                "after_hours_prompts": 0,
+                "lines": 0,
+                "first_ts_gst": None,
+                "last_ts_gst": None,
+                # Added for monthly Q (v5 schema)
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read": 0,
+                "cache_write": 0,
+                "tool_calls": {},
+                "file_hashes": set(),
+            }
+            per_day[day_key] = b
+        b["timestamps"].append(ts)
+        local = ts.astimezone(GST)
+        if b["first_ts_gst"] is None or local < b["first_ts_gst"]:
+            b["first_ts_gst"] = local
+        if b["last_ts_gst"] is None or local > b["last_ts_gst"]:
+            b["last_ts_gst"] = local
+        return day_key, b
+
+    # Pre-pass: count how often each human-prompt content appears in this file.
+    # Scheduled / loop-injected prompts (e.g., /loop firing "check discord ..." every minute)
+    # show up as normal user messages but repeat ≥3 times. We collapse them to a single
+    # count so scheduled automation doesn't inflate human_prompts. First occurrence counts;
+    # repeats are skipped entirely.
+    DUPLICATE_THRESHOLD = 3
+    content_counts = {}
+    try:
+        with open(filepath, "r", errors="replace") as f:
+            for line in f:
+                try:
+                    msg = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+                if msg.get("type") != "user" or msg.get("toolUseResult"):
+                    continue
+                inner_pre = msg.get("message") or {}
+                c_pre = inner_pre.get("content", "")
+                text_pre = ""
+                if isinstance(c_pre, str) and c_pre.strip():
+                    text_pre = c_pre.strip()
+                elif isinstance(c_pre, list):
+                    for c in c_pre:
+                        if isinstance(c, dict) and c.get("type") == "text" and c.get("text", "").strip():
+                            text_pre = c["text"].strip()
+                            break
+                if text_pre:
+                    key = hashlib.md5(text_pre.encode()).digest()
+                    content_counts[key] = content_counts.get(key, 0) + 1
+    except OSError:
+        pass
+
+    dupe_hashes = {k for k, v in content_counts.items() if v >= DUPLICATE_THRESHOLD}
+    seen_once_dupes = set()  # dupe hashes we've already processed (first occurrence kept)
+
     try:
         with open(filepath, "r", errors="replace") as f:
             for line in f:
@@ -223,11 +324,14 @@ def parse_jsonl(filepath):
                 if msg.get("type") == "file-history-snapshot":
                     continue
 
+                ts = None
+                day_bucket = None
                 ts_str = msg.get("timestamp")
                 if ts_str:
                     try:
                         ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
                         timestamps.append(ts)
+                        _, day_bucket = _get_day_bucket(ts)
                     except (ValueError, TypeError):
                         pass
 
@@ -254,6 +358,13 @@ def parse_jsonl(filepath):
                                 prompt_text = c["text"].strip()
                                 break
                     if is_human:
+                        # Dedup scheduled/looped prompts: if this exact content has
+                        # appeared ≥3 times in this session, count only the first occurrence.
+                        full_hash = hashlib.md5(prompt_text.encode()).digest()
+                        if full_hash in dupe_hashes:
+                            if full_hash in seen_once_dupes:
+                                continue  # skip this loop-injected repeat entirely
+                            seen_once_dupes.add(full_hash)
                         human += 1
                         total_prompt_count += 1
                         # Hash first 200 chars for diversity detection
@@ -264,10 +375,22 @@ def parse_jsonl(filepath):
                             "timestamp": ts_str or "",
                             "preview": prompt_text[:200],
                         })
+                        # Per-day
+                        if day_bucket is not None:
+                            day_bucket["prompts"] += 1
+                            if ts is not None and _is_after_hours(ts):
+                                day_bucket["after_hours_prompts"] += 1
 
                 # Assistant responses
                 if msg_type == "assistant":
                     api += 1
+                    if day_bucket is not None:
+                        day_bucket["api_calls"] += 1
+                        usage_m = (inner.get("usage") or {})
+                        day_bucket["input_tokens"] += usage_m.get("input_tokens", 0) or 0
+                        day_bucket["output_tokens"] += usage_m.get("output_tokens", 0) or 0
+                        day_bucket["cache_read"] += usage_m.get("cache_read_input_tokens", 0) or 0
+                        day_bucket["cache_write"] += usage_m.get("cache_creation_input_tokens", 0) or 0
                     model = inner.get("model", "unknown")
                     family = model_family(model)
                     models[model] = models.get(model, 0) + 1
@@ -301,19 +424,29 @@ def parse_jsonl(filepath):
                         if isinstance(block, dict) and block.get("type") == "tool_use":
                             name = block.get("name", "")
                             tool_calls[name] = tool_calls.get(name, 0) + 1
+                            if day_bucket is not None:
+                                day_bucket["tool_calls"][name] = day_bucket["tool_calls"].get(name, 0) + 1
                             bi = block.get("input") or {}
 
                             # Lines written
+                            line_delta = 0
                             if name == "Write" and bi.get("content"):
-                                lines += bi["content"].count("\n") + 1
+                                line_delta = bi["content"].count("\n") + 1
                             elif name == "Edit" and bi.get("new_string"):
-                                lines += bi["new_string"].count("\n") + 1
+                                line_delta = bi["new_string"].count("\n") + 1
+                            lines += line_delta
+                            if line_delta and day_bucket is not None:
+                                day_bucket["lines"] += line_delta
 
-                            # Track unique files
+                            # Track unique files (lifetime + per-day hash)
                             for key in ("file_path", "path"):
                                 fp = bi.get(key, "")
                                 if isinstance(fp, str) and fp and "/" in fp:
                                     unique_files.add(fp)
+                                    if day_bucket is not None:
+                                        # 8-char hash keeps payload small; collisions near-impossible for per-user scale
+                                        fh = hashlib.md5(fp.encode()).hexdigest()[:8]
+                                        day_bucket["file_hashes"].add(fh)
     except OSError:
         pass
 
@@ -323,6 +456,32 @@ def parse_jsonl(filepath):
         gap = (timestamps[idx] - timestamps[idx - 1]).total_seconds()
         if gap <= IDLE_THRESHOLD:
             active += gap
+
+    # Per-day active time — same gap algorithm, but bucketed by day of earlier timestamp.
+    per_day_final = {}
+    for day_key, b in per_day.items():
+        ts_list = sorted(b["timestamps"])
+        day_active = 0
+        for idx in range(1, len(ts_list)):
+            gap = (ts_list[idx] - ts_list[idx - 1]).total_seconds()
+            if gap <= IDLE_THRESHOLD:
+                day_active += gap
+        per_day_final[day_key] = {
+            "active_sec": int(day_active),
+            "prompts": b["prompts"],
+            "api_calls": b["api_calls"],
+            "after_hours_prompts": b["after_hours_prompts"],
+            "lines": b["lines"],
+            "first_hhmm": b["first_ts_gst"].strftime("%H:%M") if b["first_ts_gst"] else "",
+            "last_hhmm": b["last_ts_gst"].strftime("%H:%M") if b["last_ts_gst"] else "",
+            # v5 fields for monthly Q
+            "input_tokens": b["input_tokens"],
+            "output_tokens": b["output_tokens"],
+            "cache_read": b["cache_read"],
+            "cache_write": b["cache_write"],
+            "tool_calls": dict(b["tool_calls"]),
+            "file_hashes": sorted(b["file_hashes"]),
+        }
 
     dominant_project = max(project_votes, key=project_votes.get) if project_votes else None
 
@@ -342,6 +501,7 @@ def parse_jsonl(filepath):
         "unique_prompts": len(prompt_hashes),
         "total_prompt_count": total_prompt_count,
         "prompt_previews": prompt_previews,
+        "per_day": per_day_final,
     }
 
 
@@ -363,35 +523,125 @@ def merge_tool_calls(target, source):
         target[name] = target.get(name, 0) + count
 
 
-def compute_quality_score(stats):
-    """Compute 0-100 quality score. Higher = more likely real productive work."""
-    score = 0.0
+def merge_daily_buckets(target, source):
+    """Merge source per-day buckets into target. Sums counters, merges tool_calls dict,
+    unions file_hashes, keeps earliest/latest HH:MM."""
+    for day_key, src in source.items():
+        if day_key not in target:
+            target[day_key] = {
+                "active_sec": 0, "prompts": 0, "api_calls": 0,
+                "after_hours_prompts": 0, "lines": 0, "sessions": 0, "cost": 0.0,
+                "first_hhmm": "", "last_hhmm": "",
+                "input_tokens": 0, "output_tokens": 0, "cache_read": 0, "cache_write": 0,
+                "tool_calls": {}, "file_hashes": [],
+            }
+        t = target[day_key]
+        t["active_sec"] += src.get("active_sec", 0)
+        t["prompts"] += src.get("prompts", 0)
+        t["api_calls"] += src.get("api_calls", 0)
+        t["after_hours_prompts"] += src.get("after_hours_prompts", 0)
+        t["lines"] += src.get("lines", 0)
+        # v5 numeric sums
+        t["input_tokens"] = t.get("input_tokens", 0) + src.get("input_tokens", 0)
+        t["output_tokens"] = t.get("output_tokens", 0) + src.get("output_tokens", 0)
+        t["cache_read"] = t.get("cache_read", 0) + src.get("cache_read", 0)
+        t["cache_write"] = t.get("cache_write", 0) + src.get("cache_write", 0)
+        # Merge tool_calls dict
+        t_tools = t.get("tool_calls") or {}
+        for name, count in (src.get("tool_calls") or {}).items():
+            t_tools[name] = t_tools.get(name, 0) + count
+        t["tool_calls"] = t_tools
+        # Union file_hashes — stored as sorted list for JSON, re-sort after union
+        hset = set(t.get("file_hashes") or [])
+        hset.update(src.get("file_hashes") or [])
+        t["file_hashes"] = sorted(hset)
+        # First/last HH:MM across sessions for the same day
+        sf, sl = src.get("first_hhmm", ""), src.get("last_hhmm", "")
+        if sf and (not t["first_hhmm"] or sf < t["first_hhmm"]):
+            t["first_hhmm"] = sf
+        if sl and (not t["last_hhmm"] or sl > t["last_hhmm"]):
+            t["last_hhmm"] = sl
 
-    # 1. Tool use rate (0-25 pts)
-    # Real coding uses Read/Edit/Write/Bash/Grep/Glob extensively
+
+def compute_quality_score(stats):
+    """
+    Compute 0-110 quality score.
+    Seven base components (100 pts) + over-cap bonus (up to +10).
+
+    Over-cap bonus: for each of the 5 bonusable components, if the
+    actual-to-cap ratio is ≥ 2, add min(2, log10(ratio) * 2) bonus pts.
+    Bonusable components: lines/$, file diversity, depth, output/prompt,
+    rolling 30-day cost. Tool rate and cache rate have hard real-world
+    or mathematical ceilings, so no over-cap bonus.
+
+    Total bonus capped at +10, total score capped at 110.
+    """
+    score = 0.0
+    bonus = 0.0
+
+    def _over_cap_bonus(ratio):
+        """Log-scale bonus for being ≥2× past cap. Capped at +2 per component."""
+        if ratio < 2:
+            return 0.0
+        return min(2.0, math.log10(ratio) * 2.0)
+
+    # 1. Lines per dollar (0-20 pts) — cap at 10 lines/$
+    # Output per cost. Punishes token burn that doesn't write code.
+    if stats["total_cost"] > 0:
+        lines_per_dollar = stats["total_lines_written"] / stats["total_cost"]
+        score += min(20, lines_per_dollar * 2.0)
+        bonus += _over_cap_bonus(lines_per_dollar / 10)
+
+    # 2. File diversity (0-20 pts) — cap at 200 unique files
+    # Breadth of work. A real user touches many files over time.
+    unique_files = stats.get("unique_files", 0)
+    score += min(20, unique_files * 0.1)
+    bonus += _over_cap_bonus(unique_files / 200)
+
+    # 3. Conversation depth (0-15 pts) — cap at 25 prompts/session
+    # Sustained sessions, not throwaway one-shots.
+    if stats["total_sessions"] > 0:
+        avg_depth = stats["total_prompts"] / stats["total_sessions"]
+        score += min(15, avg_depth * 0.6)
+        bonus += _over_cap_bonus(avg_depth / 25)
+
+    # 4. Tool use rate (0-8 pts) — cap at 1.5 tools/call
+    # NO over-cap bonus: hard real-world ceiling around 2 tools/call.
     if stats["total_api_calls"] > 0:
         total_tool = sum(stats.get("tool_calls", {}).values())
         tool_rate = total_tool / stats["total_api_calls"]
-        score += min(25, tool_rate * 12.5)  # rate of 2.0 = 25 pts
+        score += min(8, tool_rate * (8 / 1.5))
 
-    # 2. Lines written per dollar (0-25 pts)
-    # Real work produces code. Gaming burns tokens for nothing.
-    if stats["total_cost"] > 0:
-        lines_per_dollar = stats["total_lines_written"] / stats["total_cost"]
-        score += min(25, lines_per_dollar * 2.5)  # 10 lines/$ = 25 pts
+    # 5. Cache hit rate (0-15 pts) — cap at 80% cache reads
+    # NO over-cap bonus: math ceiling at 100%.
+    input_t = stats.get("total_input_tokens", 0)
+    cache_read = stats.get("total_cache_read", 0)
+    if (input_t + cache_read) > 0:
+        cache_rate = cache_read / (input_t + cache_read)
+        score += min(15, cache_rate * (15 / 0.8))
 
-    # 3. File diversity (0-25 pts)
-    # Real work touches many different files
-    unique_files = stats.get("unique_files", 0)
-    score += min(25, unique_files * 0.625)  # 40+ files = 25 pts
+    # 6. Output per prompt (0-12 pts) — cap at 2,000 output tokens/prompt
+    # Substantive back-and-forth vs. yes/no chatter.
+    if stats["total_prompts"] > 0:
+        out_per_prompt = stats.get("total_output_tokens", 0) / stats["total_prompts"]
+        score += min(12, out_per_prompt * (12 / 2000))
+        bonus += _over_cap_bonus(out_per_prompt / 2000)
 
-    # 4. Conversation depth (0-25 pts)
-    # Real work = multi-turn sessions. Gaming = throwaway 1-prompt sessions.
-    if stats["total_sessions"] > 0:
-        avg_depth = stats["total_prompts"] / stats["total_sessions"]
-        score += min(25, avg_depth * 2.5)  # 10+ prompts/session = 25 pts
+    # 7. Rolling 30-day cost (0-10 pts) — cap at $500 in last 30 days
+    # Current commitment, not lifetime. Stable year-round as totals grow.
+    today = datetime.now(timezone.utc).astimezone(GST).date()
+    cutoff = today - timedelta(days=30)
+    rolling_cost = 0.0
+    for day_key, bucket in stats.get("daily_buckets", {}).items():
+        day = _parse_day_key(day_key)
+        if day and day >= cutoff:
+            rolling_cost += bucket.get("cost", 0) or 0
+    score += min(10, (rolling_cost / 500) * 10)
+    bonus += _over_cap_bonus(rolling_cost / 500)
 
-    return round(min(100, score))
+    # Total bonus capped at +10, final score capped at 110.
+    bonus = min(10.0, bonus)
+    return round(min(110, score + bonus))
 
 
 def collect_all_stats():
@@ -413,6 +663,7 @@ def collect_all_stats():
         "quality_score": 0,
         "sessions_data": [],
         "recent_prompts": [],
+        "daily_buckets": {},
     }
 
     if not PROJECTS_DIR.exists():
@@ -486,6 +737,25 @@ def collect_all_stats():
             # Merge tool calls
             merge_tool_calls(totals["tool_calls"], s["tool_calls"])
             merge_tool_calls(totals["tool_calls"], sub_tool_calls)
+
+            # Merge daily buckets — each session's per-day stats roll up into the player's totals
+            if s.get("per_day"):
+                merge_daily_buckets(totals["daily_buckets"], s["per_day"])
+
+            # Also record one session per day for the sessions count
+            if s.get("first_ts"):
+                try:
+                    first_ts = datetime.fromisoformat(s["first_ts"].replace("Z", "+00:00"))
+                    day_key = _bucket_date(first_ts)
+                    b = totals["daily_buckets"].setdefault(day_key, {
+                        "active_sec": 0, "prompts": 0, "api_calls": 0,
+                        "after_hours_prompts": 0, "lines": 0, "sessions": 0, "cost": 0.0,
+                        "first_hhmm": "", "last_hhmm": "",
+                    })
+                    b["sessions"] = b.get("sessions", 0) + 1
+                    b["cost"] = round(b.get("cost", 0.0) + sess_cost, 2)
+                except (ValueError, TypeError):
+                    pass
 
             # Accumulate quality metrics
             all_unique_files += s["unique_files"]
@@ -568,6 +838,14 @@ def collect_all_stats():
 
     # Compute quality score
     totals["quality_score"] = compute_quality_score(totals)
+
+    # Trim daily buckets to the last 90 days (GST)
+    today_gst = datetime.now(timezone.utc).astimezone(GST).date()
+    cutoff = today_gst - timedelta(days=90)
+    totals["daily_buckets"] = {
+        k: v for k, v in totals["daily_buckets"].items()
+        if _parse_day_key(k) and _parse_day_key(k) >= cutoff
+    }
 
     # Sessions sorted by time (most recent first)
     totals["sessions_data"] = sorted(
@@ -876,6 +1154,7 @@ def write_local_data(stats):
 def push(stats):
     """POST stats to the leaderboard."""
     stats["name"] = PLAYER_NAME
+    stats["script_version"] = SCRIPT_VERSION
     data = json.dumps(stats).encode()
 
     # Allow self-signed / Tailscale certs
@@ -1005,12 +1284,42 @@ def _update_kit(ctx):
         pass  # silent
 
 
+def ensure_cron():
+    """One-time setup: add an hourly cron so stats push during long-running sessions.
+    Without this, a 10-hour session is invisible until the player closes Claude Code.
+    Runs once per machine, then writes a marker file and never runs again."""
+    cron_marker = Path.home() / ".claude" / ".cron_installed"
+    if cron_marker.exists() or not PLAYER_NAME:
+        return
+    try:
+        import subprocess
+        # Check if already in crontab
+        result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        existing = result.stdout if result.returncode == 0 else ""
+        if "push_stats.py" in existing:
+            cron_marker.write_text("1")
+            return
+        # Add the hourly entry — uses SCRIPT_PATH so it points to the actual file
+        entry = f'0 * * * * PLAYER_NAME="{PLAYER_NAME}" python3 {SCRIPT_PATH} --force > /dev/null 2>&1'
+        lines = [l for l in existing.strip().split("\n") if l.strip()] if existing.strip() else []
+        lines.append(entry)
+        new_crontab = "\n".join(lines) + "\n"
+        proc = subprocess.run(["crontab", "-"], input=new_crontab, capture_output=True, text=True)
+        if proc.returncode == 0:
+            cron_marker.write_text("1")
+    except Exception:
+        pass
+
+
 def main():
     if not PLAYER_NAME:
         return
 
     # Auto-update before doing anything else
     self_update()
+
+    # One-time: ensure hourly cron is set up for mid-session pushes
+    ensure_cron()
 
     if not should_push():
         return
