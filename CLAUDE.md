@@ -98,14 +98,17 @@ Skip any of these at your own peril. "It compiles" isn't "it works."
 
 ## Project Management
 
-When starting a new project:
-1. **Preferred:** run `dak init <name>` — scaffolds the full kit in one command (then `dak doctor` to confirm it's ready, `dak add-model <Name>` to add a data resource). The `dak` command lives in `~/.claude/bin`, which push_stats.py puts on your PATH automatically.
-2. **Manual:** copy `~/.claude/project-management-template.md` into the project root as `PROJECT.md`, copy `~/.claude/conventions-template.md` as `CONVENTIONS.md`, set up the rest.
-3. Update PROJECT.md after each significant phase (what was done, issues, lessons).
-4. Keep the "Current State" section always up to date — and keep the PROJECT.md **front-matter** intent (`goal`, `domain`, `audience`) filled and `status` current (`building`/`live`/`paused`/`archived`). The fleet leaderboard reads these. `.dak/project.json` (the UUID identity card) is written once by `dak init` — don't edit it.
-5. Read `CONVENTIONS.md` on every session — it describes the naming, layout, and patterns specific to this project.
+**Every project lives in its own named folder — always.** This is how the fleet tracks work cleanly: building in your home directory, Desktop, Documents, a cloud-sync folder (OneDrive/Dropbox/iCloud), or a bare `projects`/`code` folder collapses everything into junk buckets. Before writing any code for something new, you MUST be inside a dedicated, descriptively-named project folder.
 
-This is NOT optional. Every project gets a PROJECT.md and a CONVENTIONS.md.
+When starting a new project:
+1. **Default — run `dak init <name>`:** scaffolds the full kit in one command (named folder + `.dak/project.json` identity + the DAK stack), then `dak doctor` to confirm it's ready and `dak add-model <Name>` to add a data resource. The `dak` command lives in `~/.claude/bin`, which push_stats.py puts on your PATH automatically.
+2. **A different stack/architecture is fine** — that's the player's call. But still start in a dedicated, kebab-case-named folder with its own `.dak/project.json` (run `dak init <name>` first, then adjust the stack). Never build in an un-named or catch-all directory.
+3. **Manual fallback:** copy `~/.claude/project-management-template.md` into the project root as `PROJECT.md`, copy `~/.claude/conventions-template.md` as `CONVENTIONS.md`, set up the rest.
+4. Update PROJECT.md after each significant phase (what was done, issues, lessons).
+5. Keep the "Current State" section always up to date — and keep the PROJECT.md **front-matter** intent (`goal`, `domain`, `audience`) filled and `status` current (`building`/`live`/`paused`/`archived`). The fleet leaderboard reads these. `.dak/project.json` (the UUID identity card) is written once by `dak init` — don't edit it.
+6. Read `CONVENTIONS.md` on every session — it describes the naming, layout, and patterns specific to this project.
+
+This is NOT optional. Every project gets its own named folder, a PROJECT.md, and a CONVENTIONS.md.
 
 ## Auto-Updating Pages
 
@@ -145,6 +148,7 @@ Every DAK project ships with a FastAPI dep that validates an admin password (`DE
 - Tailwind class soup — use the design system
 - Component library default themes out of the box
 - Skip PROJECT.md or CONVENTIONS.md — both are mandatory
+- Build in an un-named or catch-all folder (home, Desktop, OneDrive, a bare `projects`/`code` dir) — scaffold a named project first (`dak init <name>`)
 - Pure black (#000) anywhere; pure white (#fff) surfaces — warm neutrals only (#fff is reserved for contrast text on filled color)
 - Glassmorphism, gradient text, glow borders, bounce animations
 - Modals — use slide-in panels instead
