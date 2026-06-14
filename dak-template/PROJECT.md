@@ -1,3 +1,11 @@
+---
+project_id: {{PROJECT_ID}}
+status: building          # building | live | paused | archived
+goal: ""                  # one line — what this project is for (fill this in)
+domain: ""                # e.g. finance, hr, ops, data, customer
+audience: ""              # who uses it
+---
+
 # {{PROJECT_NAME}}
 
 > One-line description of what this project does. Replace this.

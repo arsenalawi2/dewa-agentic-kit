@@ -2,6 +2,11 @@
 
 > Claude reads this before any work. Keep it short, specific, and current. This isn't `PROJECT.md` (which is narrative history); this is the project's style rulebook.
 
+## Project identity & status
+
+- `.dak/project.json` holds the project's **immutable identity** (UUID, ports, scaffold version), written once at `dak init`. Don't edit it.
+- `PROJECT.md` **front-matter** holds the **editable intent**. Keep `goal`, `domain`, `audience` filled (one line each), and update `status` at phase boundaries (`building` → `live` → `paused`/`archived`). The fleet leaderboard reads these — an empty `goal` or stale `status` makes the project show up blank or misleading in the fleet view.
+
 ## Naming
 
 - **Python modules:** `snake_case.py`

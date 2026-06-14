@@ -51,6 +51,17 @@ TARGET="$TARGET_BASE/$SLUG"
 PREFIX=$(echo "$SLUG" | tr -cd 'a-z0-9' | head -c 4 | tr '[:lower:]' '[:upper:]')
 DATE=$(date -u +%Y-%m-%d)
 
+# Stable project identity (committed in .dak/project.json + PROJECT.md
+# front-matter) so the fleet leaderboard keys on a UUID, not the folder
+# name (which collides across players).
+PROJECT_ID=$(uuidgen 2>/dev/null | tr '[:upper:]' '[:lower:]' || python3 -c 'import uuid; print(uuid.uuid4())')
+CREATED_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+# `|| true` so a missing file (fresh-imaged machine, before the first kit
+# self-update writes .dak_version) doesn't abort the scaffold under `set -e`.
+KIT_VER=$(tr -d '"[:space:]' < "$HOME/.claude/.dak_version" 2>/dev/null || true)
+[[ -n "$KIT_VER" ]] || KIT_VER=$(tr -d '[:space:]' < "$HOME/agentic-kit/version.txt" 2>/dev/null || true)
+[[ -n "$KIT_VER" ]] || KIT_VER="unknown"
+
 # ─── Port assignment ─────────────────────────────────────────────
 # Find next free frontend port in 3001-3999, backend 8001-8999, db 5432-5499.
 next_free_port() {
@@ -97,6 +108,7 @@ substitute PROJECT_NAME       "$NAME"
 substitute PROJECT_NAME_SLUG  "$SLUG"
 substitute PREFIX             "$PREFIX"
 substitute DATE               "$DATE"
+substitute PROJECT_ID         "$PROJECT_ID"
 
 # ─── Fix port placeholders in docker-compose.yml ─────────────────
 # docker-compose.yml has 3XXX/8XXX/54XX — replace with chosen ports.
@@ -115,6 +127,24 @@ cd "$TARGET"
 ADMIN_PW=$(openssl rand -hex 16 2>/dev/null || python3 -c 'import secrets; print(secrets.token_hex(16))')
 sed "s/^DETAILED_PASSWORD=.*/DETAILED_PASSWORD=$ADMIN_PW/" .env.example > .env
 chmod 600 .env   # the admin password lives here — keep it owner-only
+
+# ─── Project identity card ───────────────────────────────────────
+# Committed so the project carries a stable UUID across machines/players.
+# Immutable identity lives here; editable intent (goal/status/...) lives in
+# PROJECT.md front-matter.
+mkdir -p .dak
+cat > .dak/project.json <<JSON
+{
+  "dak_schema": 1,
+  "project_id": "$PROJECT_ID",
+  "name": "$NAME",
+  "slug": "$SLUG",
+  "prefix": "$PREFIX",
+  "created_utc": "$CREATED_UTC",
+  "scaffold_kit_version": "$KIT_VER",
+  "ports": { "frontend": $FRONTEND_PORT, "backend": $BACKEND_PORT, "db": $DB_PORT }
+}
+JSON
 
 # ─── Git init + first commit ─────────────────────────────────────
 git init -q

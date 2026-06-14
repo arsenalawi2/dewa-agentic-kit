@@ -102,7 +102,7 @@ When starting a new project:
 1. **Preferred:** run `dak init <name>` — scaffolds the full kit in one command (then `dak doctor` to confirm it's ready, `dak add-model <Name>` to add a data resource). The `dak` command lives in `~/.claude/bin`, which push_stats.py puts on your PATH automatically.
 2. **Manual:** copy `~/.claude/project-management-template.md` into the project root as `PROJECT.md`, copy `~/.claude/conventions-template.md` as `CONVENTIONS.md`, set up the rest.
 3. Update PROJECT.md after each significant phase (what was done, issues, lessons).
-4. Keep the "Current State" section always up to date.
+4. Keep the "Current State" section always up to date — and keep the PROJECT.md **front-matter** intent (`goal`, `domain`, `audience`) filled and `status` current (`building`/`live`/`paused`/`archived`). The fleet leaderboard reads these. `.dak/project.json` (the UUID identity card) is written once by `dak init` — don't edit it.
 5. Read `CONVENTIONS.md` on every session — it describes the naming, layout, and patterns specific to this project.
 
 This is NOT optional. Every project gets a PROJECT.md and a CONVENTIONS.md.

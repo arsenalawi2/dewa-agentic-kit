@@ -111,7 +111,12 @@ def _is_after_hours(ts):
 # placeholder + mtime age) attached to projects_data so the leaderboard can see
 # doc rot. All additive + best-effort (try/except) — older servers ignore the
 # new fields.
-SCRIPT_VERSION = "2.9.0"
+# 2.10.0: data-spine phase 1 — attach a `project_meta` block to each
+# projects_data entry: stable identity from `.dak/project.json` (project_id,
+# created_utc, scaffold_kit_version, ports) + intent from PROJECT.md YAML
+# front-matter (status, goal, domain, audience). Additive; lets the leaderboard
+# key on a UUID and finally answer "what is each project, and why".
+SCRIPT_VERSION = "2.10.0"
 PLAYER_NAME = os.environ.get("PLAYER_NAME", "")
 LEADERBOARD_URL = os.environ.get("LEADERBOARD_URL", "https://leaderboard.hadismac.com")
 PUSH_INTERVAL = int(os.environ.get("PUSH_INTERVAL", "300"))
@@ -575,6 +580,58 @@ def collect_doc_flags(project_dir):
     except Exception:  # never raise — doc flags are advisory, never worth a push
         pass
     return flags
+
+
+# ── Project identity + intent (2.10.0, data-spine phase 1) ──
+
+def _parse_front_matter(text):
+    """Parse a leading `--- ... ---` block into {key: value} (stdlib only — no
+    yaml dep). Values are stripped of quotes and any trailing # comment."""
+    meta = {}
+    if not text.startswith("---"):
+        return meta
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return meta
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if ":" in line:
+            k, _, v = line.partition(":")
+            k = k.strip()
+            # strip only whitespace-preceded inline comments (YAML style) so a
+            # literal '#' inside a value (e.g. a URL fragment) survives.
+            v = re.sub(r"\s+#.*$", "", v).strip().strip('"').strip("'")
+            if k:
+                meta[k] = v
+    return meta
+
+
+def collect_project_meta(project_dir):
+    """Identity (`.dak/project.json`) + intent (PROJECT.md front-matter) for one
+    project. Best-effort, never raises; strictly additive to projects_data."""
+    meta = {}
+    try:
+        dak = project_dir / ".dak" / "project.json"
+        if dak.exists():
+            d = json.loads(dak.read_text(errors="replace"))
+            if isinstance(d, dict):
+                for k in ("project_id", "created_utc", "scaffold_kit_version"):
+                    if d.get(k):
+                        meta[k] = d[k]
+                if isinstance(d.get("ports"), dict):
+                    meta["ports"] = d["ports"]
+        pm = project_dir / "PROJECT.md"
+        if pm.exists():
+            fm = _parse_front_matter(pm.read_text(errors="replace"))
+            for k in ("status", "goal", "domain", "audience"):
+                if fm.get(k):
+                    meta[k] = fm[k]
+            if "project_id" not in meta and fm.get("project_id"):
+                meta["project_id"] = fm["project_id"]
+    except Exception:
+        pass
+    return meta
 
 
 # ── Session Parsing ──
@@ -1464,13 +1521,16 @@ def collect_all_stats():
         reverse=True,
     )
 
-    # 2.9.0: attach doc-staleness flags to each project entry (additive).
+    # 2.9.0 doc-staleness flags + 2.10.0 project identity/intent (additive).
     for entry in totals["projects_data"]:
         if entry.get("name") in (None, "Other"):
             continue
         pdir = _find_project_dir(entry["name"])
         if pdir is not None:
             entry.update(collect_doc_flags(pdir))
+            pmeta = collect_project_meta(pdir)
+            if pmeta:
+                entry["project_meta"] = pmeta
 
     return totals
 

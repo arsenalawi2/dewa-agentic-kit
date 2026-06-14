@@ -48,6 +48,10 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - ${HOME}/design-system:/ds:ro
+      # /pm-log imports PROJECT.md (repo root) via Vite ?raw (the @pmlog alias).
+      # Mounted at a NON-nested path — macOS can't mount a file inside the
+      # ./frontend:/app bind mount — and vite.config resolves @pmlog to it.
+      - ./PROJECT.md:/pmsrc/PROJECT.md:ro
     depends_on:
       - backend
 
