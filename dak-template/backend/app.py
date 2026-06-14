@@ -12,7 +12,7 @@ from logging_config import configure_logging
 from database import lifespan
 
 # Route modules — import each and mount it below.
-# from api import users, ideas, ...
+from api import items
 
 configure_logging()
 logger = logging.getLogger("app")
@@ -50,8 +50,11 @@ async def readyz():
 
 
 # ─── Mount route modules here ──────────────────────────────────────
-# app.include_router(users.router, prefix="/api/users", tags=["users"])
-# app.include_router(ideas.router, prefix="/api/ideas", tags=["ideas"])
+# Worked example — a full CRUD resource at /api/items. Delete it (and
+# api/items.py, services/items.py, models/item.py) once you have real
+# resources, or add one with `dak add-model <Name>`.
+app.include_router(items.router, prefix="/api/items", tags=["items"])
+# DAK:ROUTERS  (dak add-model inserts new routers above this line — keep it)
 
 
 @app.get("/")

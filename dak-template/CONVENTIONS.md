@@ -18,16 +18,19 @@
 ```
 project-root/
 ├── backend/
-│   ├── app.py              # aggregator, <200 lines
+│   ├── app.py              # aggregator, <200 lines (mounts routers)
 │   ├── api/                # route modules, one per resource
-│   │   ├── users.py
-│   │   └── ideas.py
+│   │   └── items.py        # worked CRUD example → /api/items
 │   ├── services/           # business logic, no HTTP
+│   │   └── items.py
 │   ├── models/             # SQLAlchemy models
+│   │   ├── base.py         # DeclarativeBase (Base.metadata)
+│   │   └── item.py         # worked example model
+│   ├── seed.py             # python -m seed  (example data)
 │   ├── auth.py             # DAK standard auth dep
-│   ├── database.py         # connection + session
+│   ├── database.py         # engine + session + create_all-on-boot
 │   ├── logging_config.py   # structured JSON logs
-│   └── tests/
+│   └── tests/              # pytest: test_health.py, test_items.py
 ├── frontend/
 │   ├── src/
 │   │   ├── main.js
@@ -74,6 +77,16 @@ All money displayed to users uses `<Aed>` from `~/design-system/components/Aed.v
 - Errors: raise `HTTPException(status_code=..., detail=...)`. Never return `{"error": "..."}` with 200.
 - ETag / 304 where cheap (read-heavy list endpoints).
 - Structured log on every non-2xx.
+
+## Data layer
+
+- **models/** — SQLAlchemy 2 ORM models, one per file, all inheriting `Base` from `models/base.py`. Register each in `models/__init__.py` so `create_all` (and Alembic) see it.
+- **services/** — async DB logic (queries, writes). No FastAPI / HTTP here — that's what keeps routers thin and the logic unit-testable.
+- **api/** — thin routers: Pydantic in/out models + a `get_session` dependency + a service call.
+- **Schema in dev:** `DAK_AUTO_CREATE=1` (the default) creates any missing tables on boot — a fresh project has a working DB with no migration step. For prod, set `DAK_AUTO_CREATE=0` and manage schema with Alembic.
+- **Add a resource:** `dak add-model <Name>` scaffolds the model + service + CRUD router and registers it in `app.py`.
+- **Seed data:** `python -m seed` (the idempotent example in `seed.py`).
+- Delete the worked `items` example (`models/item.py`, `services/items.py`, `api/items.py`, its line in `models/__init__.py`, and the mount in `app.py`) once you have real models.
 
 ## Auth
 

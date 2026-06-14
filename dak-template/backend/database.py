@@ -10,11 +10,13 @@ Usage in routes:
     async def list_items(db: AsyncSession = Depends(get_session)):
         ...
 """
+import logging
 import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -40,7 +42,7 @@ async def db_ping() -> bool:
     """Used by /readyz."""
     try:
         async with engine.connect() as conn:
-            await conn.execute("SELECT 1")
+            await conn.execute(text("SELECT 1"))  # SQLAlchemy 2 needs text()
         return True
     except Exception:
         return False
@@ -48,7 +50,20 @@ async def db_ping() -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """FastAPI lifespan — runs once on startup/shutdown."""
-    # Add Alembic migration trigger here if you want auto-migrate on boot.
+    """FastAPI lifespan — runs once on startup/shutdown.
+
+    In dev (DAK_AUTO_CREATE=1, the default) any missing tables are created on
+    boot, so a fresh project has a working schema immediately. In prod, set
+    DAK_AUTO_CREATE=0 and manage the schema with Alembic instead.
+    """
+    if os.environ.get("DAK_AUTO_CREATE", "1") == "1":
+        try:
+            import models  # noqa: F401 — registers every model on Base.metadata
+            from models.base import Base
+
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+        except Exception:
+            logging.getLogger("app").exception("create_all failed; continuing without it")
     yield
     await engine.dispose()

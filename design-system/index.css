@@ -1,14 +1,21 @@
 /* ═══════════════════════════════════════════════════════════════
-   EZ Design System
-   Evolved from AI Radar + Al Sheraa — "Analytical precision"
+   Warm-Neutral Design System (rammas-72k) — single entrypoint
 
-   Warm-tinted neutrals · Space Grotesk + DM Sans · Dark green accent
+   The DAK-standard import path. Pulls the three layers in the
+   required order (tokens must load first — base/components resolve
+   103 var() references against it) plus the Inter UI family.
 
-   Usage: @import './design-system/index.css';
+   Usage (Vite):   import "~/design-system/index.css"  (via @ds alias)
+   Usage (HTML):   <link rel="stylesheet" href="design-system/index.css">
+
+   Prefer the three individual <link>/@import lines (DESIGN_SYSTEM.md
+   quickstart) when you want to skip the Google Fonts fetch or swap a
+   layer; this file exists so the documented `~/design-system/index.css`
+   contract keeps working everywhere.
    ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @import './tokens.css';
 @import './base.css';
 @import './components.css';
-@import './utilities.css';
-@import './app.css';

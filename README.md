@@ -14,7 +14,7 @@ An opinionated setup for Claude Code that teaches it how to build production-gra
 | `git-workflow.md` | Commit conventions, branching, `.gitignore` template. |
 | `deploy.md` | Docker, Tailscale Funnel, and nginx deployment patterns. |
 | `project-management.md` | PMBOK 7-aligned PROJECT.md template (Charter, WBS, Gantt, Risks, Issues, Changes, Lessons, Status). Copied into every new project. |
-| `design-system/` | The EZ Design System — 7 CSS files. Warm-neutral palette, Space Grotesk + DM Sans + JetBrains Mono, sidebar-first layouts, dark mode built in. |
+| `design-system/` | The EZ Design System (warm-neutral / rammas-72k edition) — tokens, base, components + index.css entrypoint. Inter UI family, green primary + violet secondary, sidebar-first with hover-expand rail, dark mode built in. |
 | `templates/` | Page templates for every new project: `/vibe-code`, `/journey`, `/architecture`, `/pm-log`. All four auto-update from live data. |
 | `skills/owasp-security/` | `/owasp-security` slash command — reviews code against OWASP Top 10, ASVS 5.0, and OWASP Top 10 for LLM Applications. |
 | `hooks/push_stats.py` | Stop hook that parses `~/.claude/projects/*.jsonl` at the end of every session and pushes usage stats to the DAK leaderboard. |

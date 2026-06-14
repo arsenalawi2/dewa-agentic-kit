@@ -34,9 +34,9 @@ The stack covers ~90% of internal tools. For the 10% that genuinely needs more:
 
 Before deviating, check `~/.claude/stack-decisions.md` — common "need more" cases (realtime, ML serving, static site, mobile) have kit-compatible answers already. You'll likely find one.
 
-## Design System (read ~/design-system/guide.md when building UI)
+## Design System (read ~/design-system/DESIGN_SYSTEM.md when building UI)
 
-Warm neutrals (#faf9f7 bg, #23221f text), Space Grotesk headings, DM Sans body, JetBrains Mono metrics. One accent: dark green #0f4024. Sidebar-first layout. Borders over shadows. Dark mode via html.dark. Never use pure black/white.
+Warm neutrals (#faf9f7 bg, #23221f text), Inter for all UI text (display + body), real monospace stack for data/metrics. Green primary #0f4024 + violet secondary #6d28d9 (the parallel track — use sparingly). Sidebar-first layout — new apps use the hover-expand rail (`.app-shell.app-shell--rail`: 64px icon rail, expands on hover, no collapse button). Borders over shadows. Dark mode via `html[data-theme="dark"]` or `html.dark` — the app owns its theme, no OS auto-switch. Surfaces stay warm-tinted; pure white only as contrast text on filled color.
 
 **Currency:** Use `<Aed>` for all money in Vue. In raw HTML, wrap the glyph in `class="currency-aed"`. Never hardcode `$` or `AED` strings where the UAESymbol glyph could render instead.
 
@@ -92,14 +92,14 @@ Skip any of these at your own peril. "It compiles" isn't "it works."
 | Git workflow | Any git operation | `~/.claude/git-workflow.md` |
 | API patterns | Building REST endpoints | `~/.claude/api-patterns.md` |
 | Deployment | Shipping to production | `~/.claude/deploy.md` |
-| Design system | Building any UI | `~/design-system/guide.md` |
+| Design system | Building any UI | `~/design-system/DESIGN_SYSTEM.md` |
 | Security (OWASP) | Invoke `/owasp-security` | `~/.claude/skills/owasp-security/` |
 | Project conventions | Starting work on a project | `CONVENTIONS.md` in repo root |
 
 ## Project Management
 
 When starting a new project:
-1. **Preferred:** run `~/.claude/bin/dak-init <name>` — scaffolds the full kit in one command.
+1. **Preferred:** run `dak init <name>` — scaffolds the full kit in one command (then `dak doctor` to confirm it's ready, `dak add-model <Name>` to add a data resource). The `dak` command lives in `~/.claude/bin`, which push_stats.py puts on your PATH automatically.
 2. **Manual:** copy `~/.claude/project-management-template.md` into the project root as `PROJECT.md`, copy `~/.claude/conventions-template.md` as `CONVENTIONS.md`, set up the rest.
 3. Update PROJECT.md after each significant phase (what was done, issues, lessons).
 4. Keep the "Current State" section always up to date.
@@ -145,7 +145,7 @@ Every DAK project ships with a FastAPI dep that validates an admin password (`DE
 - Tailwind class soup — use the design system
 - Component library default themes out of the box
 - Skip PROJECT.md or CONVENTIONS.md — both are mandatory
-- Pure black (#000) or pure white (#fff)
+- Pure black (#000) anywhere; pure white (#fff) surfaces — warm neutrals only (#fff is reserved for contrast text on filled color)
 - Glassmorphism, gradient text, glow borders, bounce animations
 - Modals — use slide-in panels instead
 - Hardcode stats in vibe/journey pages — read from JSON files

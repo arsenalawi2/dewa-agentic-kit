@@ -60,7 +60,7 @@ List each coding session chronologically:
 ## Design Notes
 - Use the EZ Design System's stat display pattern for big numbers
 - Section backgrounds alternate between bg-primary and bg-secondary
-- All stat values use JetBrains Mono font
+- All stat values use the mono stack (var(--font-mono))
 - Cost values are accent-colored (green)
 - Include dark mode support
 - Mobile responsive — stats stack vertically on small screens

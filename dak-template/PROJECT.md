@@ -4,7 +4,7 @@
 
 ## Current state
 
-_{{DATE}}_ — fresh DAK scaffold. Services boot, four auto-pages render, DB is empty.
+_{{DATE}}_ — fresh DAK scaffold. Services boot, four auto-pages render, and a worked `items` data model is wired end-to-end (delete it once you add real models).
 
 ## Goals
 
@@ -26,7 +26,8 @@ Initialized via `dak init`. Vue 3 + FastAPI + Postgres + Docker wired out of the
 **What's done**
 - Docker Compose brings up db, backend, frontend.
 - `/healthz` + `/readyz` live.
-- Admin auth via `DETAILED_PASSWORD` env.
+- Admin auth via `DETAILED_PASSWORD` env (generated into `.env` at scaffold).
+- Data layer: `items` model + CRUD at `/api/items`, tables auto-created on boot, `pytest` green.
 
 **Open questions**
 - _List any decisions deferred to a later session._

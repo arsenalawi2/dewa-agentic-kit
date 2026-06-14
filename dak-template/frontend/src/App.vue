@@ -1,55 +1,59 @@
 <script setup>
-// DAK project shell — sidebar + RouterView. Swap in your project's
-// own navigation; just keep the four auto-pages (/vibe-code,
-// /journey, /architecture, /pm-log) wired.
+// DAK project shell — hover-expand rail (a 64px icon rail that expands to
+// 240px on hover/focus) with SVG nav icons from the design system. The four
+// auto-pages stay wired; add your own routes to NAV as the app grows.
+import { ref } from "vue"
+import Icon from "@ds/components/Icon.vue"
+
+const dark = ref(false)
+function toggleTheme() {
+  dark.value = !dark.value
+  document.documentElement.classList.toggle("dark", dark.value)
+}
+
+const NAV = [
+  { to: "/",             icon: "home",      label: "Home" },
+  { to: "/journey",      icon: "flag",      label: "Journey" },
+  { to: "/architecture", icon: "layers",    label: "Architecture" },
+  { to: "/vibe-code",    icon: "code",      label: "Vibe code" },
+  { to: "/pm-log",       icon: "clipboard", label: "PM log" },
+]
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell app-shell--rail">
     <aside class="sidebar">
-      <div class="brand">{{ "{{PROJECT_NAME}}" }}</div>
-      <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/journey">Journey</RouterLink>
-        <RouterLink to="/architecture">Architecture</RouterLink>
-        <RouterLink to="/vibe-code">Vibe code</RouterLink>
-        <RouterLink to="/pm-log">PM log</RouterLink>
-      </nav>
+      <div class="sidebar-top">
+        <div class="brand">
+          <span class="rail-icon"><Icon name="spark" /></span>
+          <span class="rail-label">{{ "{{PROJECT_NAME}}" }}</span>
+        </div>
+      </div>
+      <div class="sidebar-scroll">
+        <ul class="list">
+          <li v-for="n in NAV" :key="n.to">
+            <RouterLink :to="n.to" class="list-row nav-row" active-class="is-active">
+              <span class="rail-icon"><Icon :name="n.icon" /></span>
+              <span class="rail-label">{{ n.label }}</span>
+            </RouterLink>
+          </li>
+        </ul>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn btn-ghost btn-sm btn-block" @click="toggleTheme">
+          <span class="rail-icon"><Icon :name="dark ? 'sun' : 'moon'" /></span>
+          <span class="rail-label">{{ dark ? "Light" : "Dark" }} mode</span>
+        </button>
+      </div>
     </aside>
-    <main class="main">
+    <main class="main" id="main">
       <RouterView />
     </main>
   </div>
 </template>
 
 <style scoped>
-.app-shell {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  min-height: 100vh;
-}
-.sidebar {
-  padding: 24px 16px;
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border-light);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.brand {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
-}
-nav { display: flex; flex-direction: column; gap: 4px; }
-nav a {
-  padding: 8px 10px;
-  border-radius: 6px;
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 13px;
-}
-nav a:hover { background: var(--bg-hover); color: var(--text-primary); }
-nav a.router-link-active { color: var(--text-accent); font-weight: 600; }
-.main { padding: 24px; }
+/* RouterLink renders an <a>; keep the design system's row look + colors. */
+.nav-row { color: var(--color-text); text-decoration: none; }
+.nav-row:hover { text-decoration: none; }
 </style>

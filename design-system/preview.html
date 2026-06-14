@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Warm-Neutral Design System — Living Styleguide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tokens.css" />
+  <link rel="stylesheet" href="base.css" />
+  <link rel="stylesheet" href="components.css" />
+  <style>
+    /* Page-local layout only — everything visual comes from the system. */
+    .page-head { position: sticky; top: 0; z-index: var(--z-sticky);
+      background: color-mix(in srgb, var(--color-bg) 85%, transparent);
+      backdrop-filter: blur(8px); border-bottom: 1px solid var(--color-border);
+      padding: var(--space-3) 0; margin-bottom: var(--space-8); }
+    section { margin-bottom: var(--space-12); }
+    .sec-label { margin-bottom: var(--space-4); }
+    .swatch { border-radius: var(--radius-sm); border: 1px solid var(--color-border);
+      overflow: hidden; }
+    .swatch .chip-fill { height: 56px; }
+    .swatch .chip-meta { padding: var(--space-2); font-size: var(--text-xs); }
+    .type-row { display: flex; align-items: baseline; gap: var(--space-4);
+      padding: var(--space-2) 0; border-bottom: 1px dashed var(--color-border); }
+    .type-row .tok { width: 5rem; flex-shrink: 0; }
+    .demo-grid { display: grid; gap: var(--space-3);
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  </style>
+</head>
+<body>
+
+<div class="page-head">
+  <div class="container spread">
+    <div class="row">
+      <strong style="font-size:var(--text-lg)">Warm-Neutral DS</strong>
+      <span class="badge badge-neutral">distilled from rammas-72k</span>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleTheme()">◐ theme</button>
+  </div>
+</div>
+
+<main class="container">
+
+  <!-- INTRO -->
+  <section class="prose">
+    <p class="u-label">Living styleguide</p>
+    <h1>One warm, quiet system — for apps, dashboards, and documents.</h1>
+    <p class="u-muted">Borders over shadows. A single green accent with a violet
+      secondary. Inter for everything, a real monospace for data. Every element
+      below is plain HTML styled by <code>tokens.css</code> + <code>base.css</code>
+      + <code>components.css</code> — no framework, no product-specific markup.</p>
+  </section>
+
+  <!-- COLOR -->
+  <section>
+    <p class="u-label sec-label">Semantic color</p>
+    <div class="demo-grid">
+      <div class="swatch"><div class="chip-fill" style="background:var(--color-primary)"></div><div class="chip-meta"><strong>primary</strong> · green-800</div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--color-secondary)"></div><div class="chip-meta"><strong>secondary</strong> · violet-700</div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--color-warning-strong)"></div><div class="chip-meta"><strong>warning</strong> · amber</div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--color-danger)"></div><div class="chip-meta"><strong>danger</strong> · red-500</div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--color-bg)"></div><div class="chip-meta"><strong>bg</strong> · warm paper</div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--color-surface-sunken)"></div><div class="chip-meta"><strong>sunken</strong></div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--color-text)"></div><div class="chip-meta"><strong>text</strong> · near-black</div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--color-border-strong)"></div><div class="chip-meta"><strong>border</strong></div></div>
+    </div>
+  </section>
+
+  <!-- TYPE -->
+  <section>
+    <p class="u-label sec-label">Type scale</p>
+    <div class="card">
+      <div class="type-row"><span class="tok u-mono u-subtle">4xl/28</span><span style="font-size:var(--text-4xl);font-weight:700;letter-spacing:var(--tracking-tighter)">Page title</span></div>
+      <div class="type-row"><span class="tok u-mono u-subtle">3xl/24</span><span style="font-size:var(--text-3xl);letter-spacing:var(--tracking-tight)">Section heading</span></div>
+      <div class="type-row"><span class="tok u-mono u-subtle">2xl/20</span><span style="font-size:var(--text-2xl)">Subsection</span></div>
+      <div class="type-row"><span class="tok u-mono u-subtle">lg/16</span><span style="font-size:var(--text-lg)">Comfortable body & inputs</span></div>
+      <div class="type-row"><span class="tok u-mono u-subtle">base/14</span><span style="font-size:var(--text-base)">Default body copy and list rows</span></div>
+      <div class="type-row"><span class="tok u-mono u-subtle">sm/12</span><span style="font-size:var(--text-sm)">Secondary / dense UI text</span></div>
+      <div class="type-row"><span class="tok u-mono u-subtle">label</span><span class="u-label">Uppercase micro-label</span></div>
+      <div class="type-row"><span class="tok u-mono u-subtle">mono</span><span class="u-mono">UNEC-TSF-0109 · 8,614,121 · $0.015</span></div>
+      <div class="type-row"><span class="tok u-mono u-subtle">aed</span><span class="u-mono" style="font-size:var(--text-2xl)"><span class="dirham-symbol">&#xea;</span> 1,290 &nbsp;·&nbsp; <span class="dirham-symbol">&#xea;</span> 8,614,121</span></div>
+    </div>
+  </section>
+
+  <!-- BUTTONS -->
+  <section>
+    <p class="u-label sec-label">Buttons</p>
+    <div class="row-wrap" style="gap:var(--space-3)">
+      <button class="btn btn-primary">Primary</button>
+      <button class="btn btn-secondary">Secondary</button>
+      <button class="btn">Default</button>
+      <button class="btn btn-ghost">Ghost</button>
+      <button class="btn btn-subtle">Subtle</button>
+      <button class="btn btn-danger">Delete</button>
+      <button class="btn btn-primary" disabled>Disabled</button>
+      <button class="btn btn-primary btn-sm">Small</button>
+      <button class="btn btn-primary btn-lg">Large</button>
+      <button class="btn btn-primary btn-icon" title="icon">+</button>
+    </div>
+  </section>
+
+  <!-- CONTROLS -->
+  <section>
+    <p class="u-label sec-label">Controls</p>
+    <div class="demo-grid">
+      <div class="card stack">
+        <div class="field">
+          <span class="label">Email</span>
+          <input class="input" placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <span class="label">Message</span>
+          <textarea class="textarea" placeholder="Type here…"></textarea>
+        </div>
+        <div class="input-group">
+          <span class="affix">⌕</span>
+          <input placeholder="Search…" />
+        </div>
+        <select class="select"><option>Sort: Featured</option><option>Price ↑</option><option>Price ↓</option></select>
+      </div>
+      <div class="card stack">
+        <div class="segmented" role="group">
+          <button class="segmented-opt is-active"><span class="dot dot-primary"></span>List</button>
+          <button class="segmented-opt"><span class="dot"></span>Grid</button>
+        </div>
+        <div class="segmented" role="group">
+          <button class="segmented-opt is-active"><span class="dot dot-primary"></span>Monthly</button>
+          <button class="segmented-opt alt"><span class="dot dot-secondary"></span>Annual</button>
+        </div>
+        <button class="toggle is-on">✓ In stock only</button>
+        <div class="tabs"><button class="tab is-active">Sign in</button><button class="tab">Create account</button></div>
+        <div class="dropzone">⬇ Drop files to upload</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BADGES -->
+  <section>
+    <p class="u-label sec-label">Badges · tags · chips · status</p>
+    <div class="card row-wrap" style="gap:var(--space-3)">
+      <span class="badge badge-primary">Active</span>
+      <span class="badge badge-secondary">Pro</span>
+      <span class="badge badge-success">Paid</span>
+      <span class="badge badge-warning">Pending</span>
+      <span class="badge badge-danger">Failed</span>
+      <span class="badge badge-neutral">Draft</span>
+      <span class="badge badge-pill badge-primary"><span class="dot dot-primary"></span>Online</span>
+      <span class="tag">new</span>
+      <span class="chip"><span>📄 invoice.pdf</span><span class="chip-remove">×</span></span>
+      <span class="index-badge">7</span>
+      <span class="avatar">HA</span>
+      <span class="spinner"></span>
+      <span class="pulse-dots"><i></i><i></i><i></i></span>
+    </div>
+  </section>
+
+  <!-- COMMERCE + METRICS proof of generality -->
+  <section>
+    <p class="u-label sec-label">Same system, three jobs — commerce · metrics · media</p>
+    <div class="demo-grid">
+
+      <!-- shopping product card -->
+      <div class="card media-card card-hover">
+        <div class="thumb" style="background:linear-gradient(135deg,var(--color-primary-soft),var(--color-secondary-soft))"></div>
+        <div class="media-body stack">
+          <div class="spread">
+            <strong>Aeron Stool</strong>
+            <span class="tag">new</span>
+          </div>
+          <p class="u-muted" style="font-size:var(--text-sm)">Warm walnut · 3 finishes</p>
+          <div class="spread">
+            <span class="u-mono" style="font-size:var(--text-xl);font-weight:700"><span class="dirham-symbol">&#xea;</span> 1,290</span>
+            <button class="btn btn-primary btn-sm">Add to cart</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- metric tiles -->
+      <div class="stack">
+        <div class="stat-card"><div class="stat-value">12,480</div><div class="stat-label">orders</div></div>
+        <div class="stat-card is-success"><div class="stat-value">98.2%</div><div class="stat-label">fulfilled</div></div>
+        <div class="stat-card is-warning"><div class="stat-value">37</div><div class="stat-label">backordered</div></div>
+      </div>
+
+      <!-- mini bar chart -->
+      <div class="card">
+        <div class="card-head"><span class="card-title">Revenue</span><span class="card-sub">last 7d</span></div>
+        <div class="bars">
+          <div class="bar-col"><div class="bar" style="height:30px"></div><div class="bar-label">M</div></div>
+          <div class="bar-col"><div class="bar" style="height:52px"></div><div class="bar-label">T</div></div>
+          <div class="bar-col"><div class="bar" style="height:44px"></div><div class="bar-label">W</div></div>
+          <div class="bar-col"><div class="bar" style="height:70px"></div><div class="bar-label">T</div></div>
+          <div class="bar-col"><div class="bar alt" style="height:84px"></div><div class="bar-label">F</div></div>
+          <div class="bar-col"><div class="bar" style="height:60px"></div><div class="bar-label">S</div></div>
+          <div class="bar-col"><div class="bar" style="height:38px"></div><div class="bar-label">S</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ALERTS + TABLE -->
+  <section>
+    <p class="u-label sec-label">Alerts & tables</p>
+    <div class="stack">
+      <div class="alert alert-success">✓ Payment received — order confirmed.</div>
+      <div class="alert alert-warning">⚠ Low stock: 3 units remaining.</div>
+      <div class="alert alert-danger">✕ Card declined. Try another method.</div>
+      <table class="table-card">
+        <thead><tr><th>Order</th><th>Customer</th><th class="num">Items</th><th class="num">Total</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="u-mono">#10241</td><td>A. Rahman</td><td class="num">3</td><td class="num u-mono"><span class="dirham-symbol">&#xea;</span> 540</td><td><span class="badge badge-success">paid</span></td></tr>
+          <tr><td class="u-mono">#10242</td><td>L. Mansoori</td><td class="num">1</td><td class="num u-mono"><span class="dirham-symbol">&#xea;</span> 1,290</td><td><span class="badge badge-warning">pending</span></td></tr>
+          <tr><td class="u-mono">#10243</td><td>S. Khan</td><td class="num">7</td><td class="num u-mono"><span class="dirham-symbol">&#xea;</span> 2,110</td><td><span class="badge badge-neutral">draft</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- DOCUMENT proof -->
+  <section>
+    <p class="u-label sec-label">Classless document (report / strategy HTML)</p>
+    <article class="card prose">
+      <h2>Q3 Operations Review</h2>
+      <p>This entire block is <strong>semantic HTML with no classes</strong> — headings,
+        paragraphs, lists, and tables inherit the system from <code>base.css</code>.
+        Drop your generated report or strategy memo in and it reads cleanly.</p>
+      <h3>Key findings</h3>
+      <ul>
+        <li>Fulfillment held above <strong>98%</strong> through peak.</li>
+        <li>Backorders concentrated in one supplier — <em>action below</em>.</li>
+      </ul>
+      <blockquote>Borders carry structure; shadows are reserved for things that
+        truly float.</blockquote>
+      <h3>Next actions</h3>
+      <ol><li>Dual-source the walnut line.</li><li>Raise the low-stock threshold.</li></ol>
+    </article>
+  </section>
+
+  <!-- OVERLAYS -->
+  <section>
+    <p class="u-label sec-label">Overlays — sheets, not center modals</p>
+    <div class="row-wrap" style="gap:var(--space-3)">
+      <button class="btn" onclick="document.getElementById('sheet').style.display='flex'">Open side sheet</button>
+      <button class="btn" onclick="document.getElementById('viewer').style.display='flex'">Open media viewer</button>
+      <button class="btn" onclick="document.getElementById('dialog').style.display='flex'">Open confirm dialog</button>
+      <button class="btn" onclick="spawnToast()">Fire a toast</button>
+    </div>
+  </section>
+
+  <!-- TOOLTIP + MENU -->
+  <section>
+    <p class="u-label sec-label">Tooltip &amp; menu</p>
+    <div class="row-wrap" style="gap:var(--space-4); align-items:flex-start">
+      <button class="btn" data-tooltip="Pure CSS — just add data-tooltip">Hover me</button>
+      <span class="badge badge-primary" data-tooltip="Works on any element">badge with a tip</span>
+      <div style="position:relative; min-height:170px; min-width:200px">
+        <div class="menu" style="position:static; width:200px">
+          <button class="menu-item is-active">◆ &nbsp;Open</button>
+          <button class="menu-item">✎ &nbsp;Rename</button>
+          <button class="menu-item">⧉ &nbsp;Duplicate</button>
+          <hr class="menu-sep" />
+          <button class="menu-item is-danger">✕ &nbsp;Delete</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHAT -->
+  <section>
+    <p class="u-label sec-label">Chat — bubbles, typing, composer</p>
+    <div class="card" style="padding:0; display:flex; flex-direction:column; max-height:340px">
+      <div class="chat">
+        <div class="bubble bubble-user">What did we spend on Aconex this quarter?</div>
+        <div class="bubble bubble-assistant">Total Aconex spend this quarter is
+          <strong><span class="dirham-symbol">&#xea;</span> 114,766</strong> across 58 deployments —
+          12% under budget.</div>
+        <div class="bubble bubble-error">Source service timed out — retrying.</div>
+        <div class="bubble bubble-assistant"><span class="pulse-dots"><span></span><span></span><span></span></span></div>
+      </div>
+      <div class="composer">
+        <input class="input" placeholder="Ask anything…" />
+        <button class="btn btn-primary">Send</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOADING -->
+  <section>
+    <p class="u-label sec-label">Loading — skeletons for furniture, spinners for actions</p>
+    <div class="row-wrap" style="gap:var(--space-4); align-items:flex-start">
+      <div class="card" style="width:240px">
+        <div class="row"><div class="skeleton skeleton-circle"></div>
+          <div style="flex:1"><div class="skeleton skeleton-text" style="width:70%"></div>
+          <div class="skeleton skeleton-text" style="width:45%"></div></div></div>
+        <div class="skeleton" style="height:52px; margin-top:var(--space-3)"></div>
+      </div>
+      <div class="row" style="gap:var(--space-3)"><span class="spinner"></span><span class="spinner spinner-lg"></span></div>
+    </div>
+  </section>
+
+  <!-- FORM VALIDATION -->
+  <section>
+    <p class="u-label sec-label">Form validation</p>
+    <div class="card" style="max-width:380px" >
+      <div class="stack">
+        <div class="field">
+          <label class="label required">Email</label>
+          <input class="input" value="hadi@dewa" />
+        </div>
+        <div class="field is-invalid">
+          <label class="label required">Budget code</label>
+          <input class="input" value="XX-" />
+          <div class="field-error">⚠ Must match the pattern AB-0000.</div>
+        </div>
+        <label class="row" style="gap:var(--space-2)"><input type="checkbox" checked /> Notify the owner</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- DATA EXTRAS -->
+  <section>
+    <p class="u-label sec-label">Data extras — sort, sticky header, pagination, meter</p>
+    <div class="table-card table-card--scroll" style="--table-max: 180px">
+      <table class="table">
+        <thead><tr>
+          <th class="is-sortable is-sorted-desc">Spend</th>
+          <th class="is-sortable">Project</th>
+          <th class="is-sortable">Owner</th>
+          <th>Progress</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="num"><span class="dirham-symbol">&#xea;</span> 114,766</td><td>Alhasbah</td><td>AIFC</td><td><div class="meter"><div class="meter-fill" style="width:82%"></div></div></td></tr>
+          <tr><td class="num"><span class="dirham-symbol">&#xea;</span> 102,442</td><td>GenAI Recruit</td><td>DigX</td><td><div class="meter"><div class="meter-fill is-warning" style="width:64%"></div></div></td></tr>
+          <tr><td class="num"><span class="dirham-symbol">&#xea;</span> 67,649</td><td>Jarvis</td><td>Hadi</td><td><div class="meter"><div class="meter-fill" style="width:47%"></div></div></td></tr>
+          <tr><td class="num"><span class="dirham-symbol">&#xea;</span> 46,861</td><td>CAIO Reports</td><td>Office</td><td><div class="meter"><div class="meter-fill is-danger" style="width:104%"></div></div></td></tr>
+          <tr><td class="num"><span class="dirham-symbol">&#xea;</span> 33,824</td><td>SwarmCast</td><td>Hadi</td><td><div class="meter"><div class="meter-fill" style="width:31%"></div></div></td></tr>
+          <tr><td class="num"><span class="dirham-symbol">&#xea;</span> 15,078</td><td>AI Radar</td><td>Hadi</td><td><div class="meter"><div class="meter-fill" style="width:12%"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <span class="pagination-info">31–60 of 184</span>
+      <div class="pagination-buttons">
+        <button class="btn btn-sm">← Prev</button>
+        <button class="btn btn-sm">Next →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHART TOKENS -->
+  <section>
+    <p class="u-label sec-label">Chart tokens — the sanctioned series order</p>
+    <div class="demo-grid">
+      <div class="swatch"><div class="chip-fill" style="background:var(--chart-1)"></div><div class="chip-meta"><strong>--chart-1</strong> · primary series</div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--chart-2)"></div><div class="chip-meta"><strong>--chart-2</strong></div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--chart-3)"></div><div class="chip-meta"><strong>--chart-3</strong></div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--chart-4)"></div><div class="chip-meta"><strong>--chart-4</strong></div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--chart-5)"></div><div class="chip-meta"><strong>--chart-5</strong> · outliers</div></div>
+      <div class="swatch"><div class="chip-fill" style="background:var(--chart-6)"></div><div class="chip-meta"><strong>--chart-6</strong> · "other"</div></div>
+    </div>
+  </section>
+
+  <!-- AUTH -->
+  <section>
+    <p class="u-label sec-label">Auth pattern — .auth-shell + .auth-card</p>
+    <div class="auth-card" style="margin:0">
+      <div class="auth-brand">✦ <span>Warm Neutral</span></div>
+      <div class="alert alert-danger">Wrong password — 2 attempts left.</div>
+      <div class="field"><label class="label">Email</label><input class="input" value="l.mansoori@dewa.gov.ae" /></div>
+      <div class="field"><label class="label">Password</label><input class="input" type="password" value="secret" /></div>
+      <button class="btn btn-primary btn-block">Sign in</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- side sheet -->
+<div class="scrim to-right" id="sheet" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <aside class="sheet">
+    <header class="sheet-head"><h3>Order #10242</h3><button class="sheet-close" onclick="document.getElementById('sheet').style.display='none'">×</button></header>
+    <div class="sheet-body stack">
+      <div><span class="label">Customer</span><p>L. Mansoori</p></div>
+      <div><span class="label">Status</span><p><span class="badge badge-warning">pending</span></p></div>
+      <div class="card prose"><p>Detail panels slide in from the edge — they keep the
+        user's place instead of yanking focus to the center.</p></div>
+    </div>
+  </aside>
+</div>
+
+<!-- media viewer -->
+<div class="viewer" id="viewer" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <button class="viewer-close" onclick="document.getElementById('viewer').style.display='none'">×</button>
+  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400'%3E%3Crect width='600' height='400' fill='%230f4024'/%3E%3Ctext x='300' y='210' fill='%23fff' font-family='sans-serif' font-size='28' text-anchor='middle'%3EFull-screen media%3C/text%3E%3C/svg%3E" alt="demo" />
+</div>
+
+<!-- confirm dialog -->
+<div class="dialog-scrim" id="dialog" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="dialog">
+    <div class="dialog-title">Delete 12 records?</div>
+    <p class="u-muted">This can't be undone. The sanctioned center-modal exception:
+      one question, two buttons — anything bigger belongs in a sheet.</p>
+    <div class="dialog-actions">
+      <button class="btn" onclick="document.getElementById('dialog').style.display='none'">Cancel</button>
+      <button class="btn btn-danger" onclick="document.getElementById('dialog').style.display='none'">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- toast stack -->
+<div class="toaster" id="toaster"></div>
+
+<script>
+  function toggleTheme() {
+    const r = document.documentElement;
+    r.setAttribute('data-theme', r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  }
+  const TOASTS = [
+    ['toast-success', 'Saved — 12 records updated.'],
+    ['toast-info', 'Export queued; we\'ll ping you here.'],
+    ['toast-warning', 'Aconex sync is slow today.'],
+    ['toast-danger', 'Save failed — backend returned 422.'],
+  ];
+  let toastIdx = 0;
+  function spawnToast() {
+    const [cls, msg] = TOASTS[toastIdx++ % TOASTS.length];
+    const el = document.createElement('div');
+    el.className = 'toast ' + cls;
+    el.textContent = msg;
+    document.getElementById('toaster').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+</script>
+</body>
+</html>

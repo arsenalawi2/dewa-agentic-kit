@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+#
+# dak-add-model <Name> — scaffold a SQLAlchemy model + service + CRUD router
+# and register it in backend/app.py, following the DAK layering
+# (models/ ORM · services/ DB logic · api/ HTTP). Run from the project root.
+#
+#   dak add-model Widget   →  GET/POST /api/widgets, GET /api/widgets/{id}
+#
+# Idempotent-ish: refuses to overwrite existing files.
+set -euo pipefail
+
+die() { echo "dak add-model: $*" >&2; exit 1; }
+
+RAW="${1:-}"
+[[ -n "$RAW" ]] || die "usage: dak add-model <Name>   (e.g. Widget)"
+[[ "$RAW" =~ ^[A-Za-z][A-Za-z0-9]*$ ]] || die "name must be a single alphanumeric word, e.g. Widget"
+
+[[ -d backend ]] || die "run this from a DAK project root (no backend/ here)"
+[[ -f backend/models/base.py ]] || die "backend/models/base.py missing — is this a DAK project on the current template?"
+
+# Name forms.
+NAME="$(printf '%s' "${RAW:0:1}" | tr '[:lower:]' '[:upper:]')${RAW:1}"  # PascalCase
+SNAKE="$(printf '%s' "$NAME" | sed -E 's/([a-z0-9])([A-Z])/\1_\2/g' | tr '[:upper:]' '[:lower:]')"
+PLURAL="${SNAKE}s"
+
+MODEL_FILE="backend/models/${SNAKE}.py"
+SVC_FILE="backend/services/${PLURAL}.py"
+API_FILE="backend/api/${PLURAL}.py"
+
+for f in "$MODEL_FILE" "$SVC_FILE" "$API_FILE"; do
+  [[ -e "$f" ]] && die "$f already exists — pick another name or delete it first"
+done
+
+cat > "$MODEL_FILE" <<EOF
+"""${NAME} ORM model."""
+from datetime import datetime
+
+from sqlalchemy import DateTime, String, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from models.base import Base
+
+
+class ${NAME}(Base):
+    __tablename__ = "${PLURAL}"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+EOF
+
+cat > "$SVC_FILE" <<EOF
+"""${NAME} data-access logic — no HTTP here (that's api/${PLURAL}.py)."""
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from models.${SNAKE} import ${NAME}
+
+
+async def list_${PLURAL}(db: AsyncSession) -> list[${NAME}]:
+    res = await db.execute(select(${NAME}).order_by(${NAME}.created_at.desc()))
+    return list(res.scalars().all())
+
+
+async def create_${SNAKE}(db: AsyncSession, name: str) -> ${NAME}:
+    row = ${NAME}(name=name)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def get_${SNAKE}(db: AsyncSession, ${SNAKE}_id: int) -> ${NAME} | None:
+    return await db.get(${NAME}, ${SNAKE}_id)
+EOF
+
+cat > "$API_FILE" <<EOF
+"""${NAME} CRUD router — mounted at /api/${PLURAL} by app.py."""
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from database import get_session
+from services import ${PLURAL} as svc
+
+router = APIRouter()
+
+
+class ${NAME}In(BaseModel):
+    name: str
+
+
+class ${NAME}Out(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+
+
+@router.get("", response_model=list[${NAME}Out])
+async def list_${PLURAL}(db: AsyncSession = Depends(get_session)):
+    return await svc.list_${PLURAL}(db)
+
+
+@router.post("", response_model=${NAME}Out, status_code=201)
+async def create_${SNAKE}(body: ${NAME}In, db: AsyncSession = Depends(get_session)):
+    return await svc.create_${SNAKE}(db, body.name)
+
+
+@router.get("/{${SNAKE}_id}", response_model=${NAME}Out)
+async def get_${SNAKE}(${SNAKE}_id: int, db: AsyncSession = Depends(get_session)):
+    row = await svc.get_${SNAKE}(db, ${SNAKE}_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="${SNAKE} not found")
+    return row
+EOF
+
+# Register the model so create_all() sees it.
+if ! grep -q "from models.${SNAKE} import ${NAME}" backend/models/__init__.py 2>/dev/null; then
+  echo "from models.${SNAKE} import ${NAME}  # noqa: F401" >> backend/models/__init__.py
+fi
+
+# Register the router in app.py at the DAK:ROUTERS marker.
+if grep -q "# DAK:ROUTERS" backend/app.py; then
+  perl -i -pe "s{(\s*)# DAK:ROUTERS}{\$1from api import ${PLURAL}\n\$1app.include_router(${PLURAL}.router, prefix=\"/api/${PLURAL}\", tags=[\"${PLURAL}\"])\n\$1# DAK:ROUTERS}" backend/app.py
+  REGISTERED="registered in app.py"
+else
+  REGISTERED="NOT auto-registered (no # DAK:ROUTERS marker) — add manually:
+    from api import ${PLURAL}
+    app.include_router(${PLURAL}.router, prefix=\"/api/${PLURAL}\", tags=[\"${PLURAL}\"])"
+fi
+
+cat <<EOF
+
+✔ Added ${NAME}
+  model:   ${MODEL_FILE}
+  service: ${SVC_FILE}
+  router:  ${API_FILE}  →  /api/${PLURAL}
+  ${REGISTERED}
+
+Restart the backend (create_all picks up the new table on boot):
+  docker compose up -d --build backend
+Then write tests in backend/tests/test_${PLURAL}.py before the next feature.
+EOF

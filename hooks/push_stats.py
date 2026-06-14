@@ -18,10 +18,12 @@ import hashlib
 import json
 import math
 import os
+import re
 import socket
 import sys
 import ssl
 import time
+import urllib.error
 import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -60,13 +62,88 @@ def _is_after_hours(ts):
 # 2.3.0: include machine_id + hostname so the leaderboard can keep per-machine
 # rows for the same player name (fixes stats overwrite when same PLAYER_NAME is
 # used on multiple machines — prior versions clobbered whoever pushed last).
-SCRIPT_VERSION = "2.4.0"
+# 2.5.0: token-based auth for /api/leaderboard/submit (C4). First push
+# from a new laptop is queued as 'pending'; after admin approves, the next
+# push bootstraps the token and caches it at TOKEN_FILE for every future
+# submit. During the dual-accept migration window the server still accepts
+# tokenless pushes with a warning — behaviour flips to reject-on-missing
+# once ENROLLMENT_ENFORCE_TOKEN is set on the server.
+# 2.5.1: enable real TLS verification. Previous versions set CERT_NONE +
+# check_hostname=False as a workaround for a now-retired self-signed /
+# Tailscale-Funnel setup. The leaderboard is behind Cloudflare with a real
+# Let's Encrypt cert, so default verification just works — and closes the
+# MITM-update hole where any intermediate proxy could swap in code that
+# self_update() would write to disk and os.execv.
+# 2.5.2: DESC cybersec compliance — capture full prompt text (no 200-char
+# preview truncation) and uncap the recent_prompts list so every input a
+# player ever sent is archived. Loop-injected repeats still don't inflate
+# the human_prompts counter, but they ARE logged (with is_scheduled=True)
+# so the audit trail is complete. Matching server-side caps were raised
+# to 50 MB body + uncapped recent_prompts in backend commit b6a3156.
+# 2.5.3: player-level prompt-archive exemption. Players named in
+# PROMPT_LOG_EXEMPT_PLAYERS (comma-separated, case-insensitive, default
+# "Hadi") still push all metrics but recent_prompts is stripped to an
+# empty list before send. Saves ~10-15 MB per push for heavy users whose
+# content doesn't need to be archived (e.g., the admin's own sessions).
+# Server enforces the same list defensively.
+# 2.7.0: SkillOps — per-tool usage detail (tool_detail). Classifies every
+# tool_use into skill / mcp / builtin (with plugin + mcp-server taxonomy) and
+# attributes two token figures per tool: gen_tokens (the invoking turn's output,
+# split across its tool_use blocks) and result_tokens (the tool_result payload
+# size injected back into context, ~chars/4). Counts are exact; tokens are a
+# documented attribution, not billed per-tool. Additive field — older servers
+# ignore it; the new server stores it in players.tool_detail.
+# 2.7.1: tool_detail rows gain a `models` dict ({family: calls}) — which model
+# family invoked each skill / plugin / MCP tool.
+# 2.8.0: SkillOps v2 — (a) typed /<skill> slash commands counted (cmd_calls;
+# CLI built-ins denylisted), (b) per-tool `errors` from tool_result is_error,
+# (c) daily_buckets gain capped per-day `skills` / `mcp_servers` dicts so the
+# server can chart adoption trends (backfills to local history depth on next
+# push, since daily_buckets are re-parsed from local JSONL every run).
+# 2.8.1: fable/mythos model families (Mythos-class, 2026-06-09) with correct
+# 2x-opus pricing. Previously collapsed into "opus" and costed at half price;
+# costs self-correct fleet-wide on the next push (full local re-parse).
+# 2.9.0: DAK first-run-reliability batch — (a) ensure_dak_path() puts
+# ~/.claude/bin on PATH (idempotent, marker-guarded) so `dak`/`dak-init` are
+# runnable fleet-wide; (b) write_tech_stack stamps schema_version and preserves
+# unknown top-level keys instead of silently dropping hand-curated data on the
+# first push; (c) per-project doc-staleness flags (journey/PROJECT.md
+# placeholder + mtime age) attached to projects_data so the leaderboard can see
+# doc rot. All additive + best-effort (try/except) — older servers ignore the
+# new fields.
+SCRIPT_VERSION = "2.9.0"
 PLAYER_NAME = os.environ.get("PLAYER_NAME", "")
 LEADERBOARD_URL = os.environ.get("LEADERBOARD_URL", "https://leaderboard.hadismac.com")
 PUSH_INTERVAL = int(os.environ.get("PUSH_INTERVAL", "300"))
 THROTTLE_FILE = Path.home() / ".claude" / ".leaderboard_last_push"
 MACHINE_ID_FILE = Path.home() / ".claude" / ".machine-id"
 HOSTNAME_FILE = Path.home() / ".claude" / ".machine-hostname"
+TOKEN_FILE = Path.home() / ".claude" / ".leaderboard_token"
+
+
+def read_token() -> str:
+    """Load the cached per-laptop token. Empty string if not yet issued."""
+    try:
+        if TOKEN_FILE.exists():
+            return TOKEN_FILE.read_text().strip()
+    except OSError:
+        pass
+    return ""
+
+
+def write_token(token: str) -> None:
+    """Persist a token issued by the server. Best-effort — never crash push."""
+    if not token:
+        return
+    try:
+        TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        TOKEN_FILE.write_text(token)
+        try:
+            os.chmod(TOKEN_FILE, 0o600)  # reduce casual readability
+        except OSError:
+            pass
+    except OSError:
+        pass
 
 
 def get_machine_id():
@@ -147,6 +224,10 @@ PRICING = {
     "opus":   {"input": 5/1e6, "output": 25/1e6, "cache_read": 0.50/1e6, "cache_write": 6.25/1e6},
     "sonnet": {"input": 3/1e6, "output": 15/1e6, "cache_read": 0.30/1e6, "cache_write": 3.75/1e6},
     "haiku":  {"input": 1/1e6, "output": 5/1e6,  "cache_read": 0.10/1e6, "cache_write": 1.25/1e6},
+    # Mythos-class (2026-06-09): claude-fable-5 / claude-mythos-5 — 2x opus
+    # (platform.claude.com/docs pricing: $10 in / $50 out / $1 cr / $12.50 cw)
+    "fable":  {"input": 10/1e6, "output": 50/1e6, "cache_read": 1.00/1e6, "cache_write": 12.50/1e6},
+    "mythos": {"input": 10/1e6, "output": 50/1e6, "cache_read": 1.00/1e6, "cache_write": 12.50/1e6},
 }
 
 
@@ -174,12 +255,123 @@ def model_family(model):
     m = (model or "").lower()
     if "haiku" in m: return "haiku"
     if "sonnet" in m: return "sonnet"
+    # 2.8.1: Mythos-class models (released 2026-06-09) — priced 2x opus
+    if "fable" in m: return "fable"
+    if "mythos" in m: return "mythos"
     return "opus"
 
 
 def cost_for(inp, out, cr, cw, model):
     p = PRICING[model_family(model)]
     return inp * p["input"] + out * p["output"] + cr * p["cache_read"] + cw * p["cache_write"]
+
+
+# ── Hygiene findings (2.6.0) ──
+# Per-day cybersec score signals. Patterns are scoped:
+#   "code"   — applied to executed Bash commands and Edit/Write file content
+#   "prompt" — applied only to user prompt text (intent flags, not code patterns)
+# Server computes 100 - Σ severity*log10(1+count) over 30d. Samples are short
+# hashes so the server can dedupe without seeing the underlying text.
+HYGIENE_PATTERNS = {
+    "secrets_in_code": [
+        re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}"),
+        re.compile(r"\bAKIA[A-Z0-9]{16}\b"),
+        re.compile(r"\bghp_[A-Za-z0-9]{36}\b"),
+        re.compile(r"\bxox[bp]-[A-Za-z0-9-]{10,}"),
+        re.compile(r"""(?im)^[^\n#/'"\\]*\b(?:api[_-]?key|password|secret|access[_-]?token)\s*[:=]\s*["'][A-Za-z0-9_!@#$%^&*+/=\-]{20,}["']"""),
+    ],
+    "tls_disabled": [
+        re.compile(r"\bverify\s*=\s*False\b"),
+        re.compile(r"\brejectUnauthorized\s*:\s*false"),
+        re.compile(r"\bNODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['\"]?0"),
+        re.compile(r"\bcurl\b[^\n]*\s(?:-k\b|--insecure\b)"),
+    ],
+    "pipe_to_shell": [
+        re.compile(r"\b(?:curl|wget)\s+[^\n|]+\|\s*(?:ba)?sh\b"),
+    ],
+    "shell_injection": [
+        re.compile(r"\bsubprocess\.[A-Za-z_]+\([^)]*shell\s*=\s*True"),
+        re.compile(r"\bos\.system\(\s*[fF]['\"]"),
+    ],
+    "sql_concat": [
+        # Require multi-word SQL grammar so "Would delete {n}" doesn't match.
+        # Matches: f"INSERT INTO …{var}…", f"DELETE FROM …{var}…",
+        # f"UPDATE x SET …{var}…", f"SELECT … FROM …{var}…".
+        re.compile(r"""[fF]["'][^"']*\b(?i:INSERT\s+INTO|DELETE\s+FROM|UPDATE\s+\w+\s+SET|SELECT\b[^"']+\bFROM)\b[^"']*\{[^}]+\}"""),
+        # String concat with SQL clause: "... WHERE id = " + user_input
+        re.compile(r"""["'][^"']*\b(?i:WHERE|VALUES)\b[^"']{0,40}["']\s*\+\s*\w"""),
+    ],
+    "no_verify_commit": [
+        re.compile(r"\bgit\s+(?:commit|push|merge|rebase|tag)\b[^&;|\n]*--no-verify\b"),
+        re.compile(r"\bgit\s+(?:commit|push|merge|rebase|tag)\b[^&;|\n]*--no-gpg-sign\b"),
+    ],
+    "destructive_rm": [
+        # Match wholesale targets only: `rm -rf /`, `rm -rf ~`, `rm -rf *` —
+        # NOT `rm -rf ~/something/specific` which is normal cleanup.
+        re.compile(r"\brm\s+(?:-[rRf]+\s+)+(?:/(?:\s|$)|~(?:\s|$)|\*(?:\s|$))"),
+    ],
+    "chmod_world": [
+        re.compile(r"\bchmod\s+(?:777|a\+rwx)\b"),
+    ],
+    "skip_intent_prompt": [
+        re.compile(r"(?i)\bskip\s+(?:the\s+)?(?:test|hook|verif|check)"),
+        re.compile(r"(?i)\bbypass\s+(?:the\s+)?(?:security|auth|verif|hook)"),
+        re.compile(r"(?i)\bignore\s+(?:the\s+)?(?:warning|error|security)"),
+        re.compile(r"(?i)\bdisable\s+(?:tls|ssl|verif)"),
+        re.compile(r"(?i)--no-verify\b"),
+    ],
+}
+
+HYGIENE_SEVERITY = {
+    "secrets_in_code":    25,
+    "tls_disabled":       15,
+    "pipe_to_shell":      15,
+    "shell_injection":    12,
+    "sql_concat":         12,
+    "no_verify_commit":   10,
+    "destructive_rm":     10,
+    "chmod_world":         5,
+    "skip_intent_prompt":  3,
+}
+
+HYGIENE_CODE_CATS = [c for c in HYGIENE_PATTERNS if c != "skip_intent_prompt"]
+HYGIENE_PROMPT_CATS = ["skip_intent_prompt"]
+HYGIENE_SAMPLE_CAP = 10  # max per-category sample hashes shipped per day
+
+
+def _scan_hygiene(text, scope="code"):
+    """Return list of (category, sample_hash) for matches in text."""
+    if not text or not isinstance(text, str):
+        return []
+    cats = HYGIENE_PROMPT_CATS if scope == "prompt" else HYGIENE_CODE_CATS
+    findings = []
+    seen = set()
+    for category in cats:
+        for pat in HYGIENE_PATTERNS[category]:
+            for m in pat.finditer(text):
+                snippet = m.group(0)[:200]
+                h = hashlib.sha256(snippet.encode("utf-8", "replace")).hexdigest()[:12]
+                key = (category, h)
+                if key in seen:
+                    continue
+                seen.add(key)
+                findings.append(key)
+    return findings
+
+
+def _record_findings(day_bucket, findings):
+    """Merge findings into day_bucket['hygiene_findings']: {cat: {count, samples:set}}."""
+    if day_bucket is None or not findings:
+        return
+    hf = day_bucket.setdefault("hygiene_findings", {})
+    for category, h in findings:
+        b = hf.get(category)
+        if b is None:
+            b = {"count": 0, "samples": set()}
+            hf[category] = b
+        b["count"] += 1
+        if len(b["samples"]) < HYGIENE_SAMPLE_CAP:
+            b["samples"].add(h)
 
 
 # ── Project Detection (CWD-based — no pre-scanning needed) ──
@@ -335,7 +527,125 @@ def detect_project_description(proj_name):
     return ""
 
 
+# ── Doc-staleness signals (2.9.0) ──
+# Cheap, truthful flags about whether a project's narrative docs are still the
+# scaffold default (placeholder) and how long since they were touched. Lets the
+# leaderboard surface real docs vs fossils — and lets Claude offer to fill them.
+JOURNEY_DEFAULT_SHA = "80fa17317c8b0d10aa15a4a475cf0431a0fbb39a91a792c352881abf1fafac14"
+PROJECT_MD_PLACEHOLDER_MARKERS = (
+    "One-line description of what this project does. Replace this.",
+    "Fill in what this project is trying to achieve",
+)
+
+
+def _find_project_dir(proj_name):
+    """Locate a project directory by name across the common project roots."""
+    home = Path.home()
+    for base in (home, home / "Projects", home / "code", home / "dev", home / "repos"):
+        p = base / proj_name
+        if p.is_dir():
+            return p
+    return None
+
+
+def collect_doc_flags(project_dir):
+    """Best-effort doc-freshness flags for one project. Never raises."""
+    flags = {}
+    try:
+        journey = None
+        for sub in ("frontend/public", "public"):
+            cand = project_dir / sub / "journey-data.json"
+            if cand.exists():
+                journey = cand
+                break
+        if journey is not None:
+            raw = journey.read_bytes()
+            flags["journey_is_placeholder"] = (
+                hashlib.sha256(raw).hexdigest() == JOURNEY_DEFAULT_SHA
+            )
+            flags["journey_mtime_days"] = int((time.time() - journey.stat().st_mtime) / 86400)
+
+        pm = project_dir / "PROJECT.md"
+        if pm.exists():
+            txt = pm.read_text(errors="replace")
+            flags["project_md_is_placeholder"] = any(
+                m in txt for m in PROJECT_MD_PLACEHOLDER_MARKERS
+            )
+            flags["project_md_mtime_days"] = int((time.time() - pm.stat().st_mtime) / 86400)
+    except Exception:  # never raise — doc flags are advisory, never worth a push
+        pass
+    return flags
+
+
 # ── Session Parsing ──
+
+def _classify_tool(name, tool_input):
+    """Classify a tool_use into (key, kind, display, server, plugin) for the
+    SkillOps breakdown. `key` is a stable, human-readable id used as the dict key.
+
+      • Skill dispatcher  → kind=skill, display=<skill arg>, plugin=<ns before ':'>
+      • mcp__server__tool → kind=mcp,   display=<tool>, server=<server>,
+                            plugin=<X> when the server is 'plugin_X_Y'
+      • everything else   → kind=builtin (Bash, Read, Edit, Task, ...)
+
+    Token attribution is added by the caller; this only does naming/taxonomy.
+    """
+    name = name or ""
+    if name == "Skill":
+        skill = ((tool_input or {}).get("skill") or "unknown").strip() or "unknown"
+        plugin = skill.split(":")[0] if ":" in skill else ""
+        return (f"skill:{skill}", "skill", skill, "", plugin)
+    if name.startswith("mcp__"):
+        parts = name.split("__")
+        server = parts[1] if len(parts) > 1 else "unknown"
+        tool = "__".join(parts[2:]) if len(parts) > 2 else (parts[1] if len(parts) > 1 else name)
+        plugin = ""
+        if server.startswith("plugin_"):
+            # plugin_<plugin>_<server> — best-effort split (plugin token first)
+            rest = server[len("plugin_"):]
+            plugin = rest.split("_")[0]
+        return (f"mcp:{server}/{tool}", "mcp", tool, server, plugin)
+    return (f"builtin:{name}", "builtin", name, "", "")
+
+
+def _result_token_estimate(block):
+    """~tokens injected back into context by a tool_result block (chars/4)."""
+    content = block.get("content")
+    chars = 0
+    if isinstance(content, str):
+        chars = len(content)
+    elif isinstance(content, list):
+        for c in content:
+            if isinstance(c, dict):
+                if isinstance(c.get("text"), str):
+                    chars += len(c["text"])
+                elif c.get("type") == "image":
+                    chars += 1500  # nominal: an image block is heavy but not text
+    return chars // 4
+
+
+def _td_row():
+    return {"kind": "", "name": "", "server": "", "plugin": "",
+            "calls": 0, "gen_tokens": 0, "result_tokens": 0, "models": {},
+            "errors": 0, "cmd_calls": 0}
+
+
+# 2.8.0: skills are also invoked by the user typing /<name> — those don't go
+# through the Skill tool and were invisible to 2.7.x. They appear in the JSONL
+# as <command-name> tags (in user messages and system/local_command lines).
+# CLI built-ins (session plumbing, not skills) are excluded; built-in *skills*
+# like /init, /review, /security-review stay countable.
+_CMD_RE = re.compile(r"<command-name>\s*/?([^<\s]+)\s*</command-name>")
+_CMD_DENYLIST = {
+    "clear", "compact", "model", "effort", "plugin", "plugins", "reload-plugins",
+    "remote-control", "help", "login", "logout", "status", "config", "cost",
+    "doctor", "memory", "bug", "fast", "mcp", "agents", "hooks", "ide", "install",
+    "permissions", "resume", "rewind", "terminal-setup", "todos", "vim", "upgrade",
+    "usage", "whoami", "exit", "quit", "context", "export", "add-dir", "bashes",
+    "statusline", "output-style", "release-notes", "privacy-settings", "theme",
+    "migrate-installer", "tasks", "teleport", "workflows", "desktop",
+}
+
 
 def parse_jsonl(filepath):
     """Parse a single JSONL file. Returns stats + detected project + quality metrics."""
@@ -350,6 +660,11 @@ def parse_jsonl(filepath):
 
     # Quality metrics
     tool_calls = {}       # {tool_name: count}
+    # SkillOps: per-tool detail keyed by stable id (skill:/mcp:/builtin:).
+    # id_to_key maps a tool_use id -> that key so the later tool_result can
+    # attribute its payload size (result_tokens) back to the right tool.
+    tool_detail = {}
+    id_to_key = {}
     unique_files = set()  # unique file paths touched
     prompt_hashes = set() # hashes of human prompt content
     total_prompt_count = 0
@@ -378,10 +693,18 @@ def parse_jsonl(filepath):
                 "output_tokens": 0,
                 "cache_read": 0,
                 "cache_write": 0,
+                # 2.5.4: cost is now bucketed per-message-day, not per-session-start-day,
+                # so long-running sessions that span days don't dump all cost on day 1.
+                "cost": 0.0,
                 "tool_calls": {},
                 "models": {},
+                # 2.8.0: per-day skill / MCP-server usage for SkillOps trends
+                "skills": {},
+                "mcp_servers": {},
                 "file_hashes": set(),
                 "file_extensions": {},
+                # 2.6.0: per-day cybersec hygiene findings. {cat: {count, samples:set}}
+                "hygiene_findings": {},
             }
             per_day[day_key] = b
         b["timestamps"].append(ts)
@@ -391,6 +714,25 @@ def parse_jsonl(filepath):
         if b["last_ts_gst"] is None or local > b["last_ts_gst"]:
             b["last_ts_gst"] = local
         return day_key, b
+
+    def _record_command(text, day_bucket):
+        """2.8.0: count /<skill> slash-command invocations found in `text`.
+        These don't dispatch the Skill tool, so tokens aren't attributable —
+        only calls/cmd_calls move (and the per-day skills bucket)."""
+        for raw_name in _CMD_RE.findall(text or ""):
+            cname = raw_name.strip().strip("/")
+            if not cname or cname.lower() in _CMD_DENYLIST:
+                continue
+            row = tool_detail.setdefault(f"skill:{cname}", _td_row())
+            row["kind"] = "skill"
+            row["name"] = cname
+            if ":" in cname and not row["plugin"]:
+                row["plugin"] = cname.split(":")[0]
+            row["calls"] += 1
+            row["cmd_calls"] += 1
+            if day_bucket is not None:
+                sk = day_bucket["skills"]
+                sk[cname] = sk.get(cname, 0) + 1
 
     # Pre-pass: count how often each human-prompt content appears in this file.
     # Scheduled / loop-injected prompts (e.g., /loop firing "check discord ..." every minute)
@@ -472,28 +814,66 @@ def parse_jsonl(filepath):
                                 prompt_text = c["text"].strip()
                                 break
                     if is_human:
-                        # Dedup scheduled/looped prompts: if this exact content has
-                        # appeared ≥3 times in this session, count only the first occurrence.
+                        # Separate "counted" (for human_prompts metric) from
+                        # "logged" (for DESC audit archive). Loop-injected
+                        # repeats get is_scheduled=True but still ship full
+                        # text so the audit trail is complete.
                         full_hash = hashlib.md5(prompt_text.encode()).digest()
-                        if full_hash in dupe_hashes:
+                        is_scheduled = full_hash in dupe_hashes
+                        is_counted = True
+                        if is_scheduled:
                             if full_hash in seen_once_dupes:
-                                continue  # skip this loop-injected repeat entirely
-                            seen_once_dupes.add(full_hash)
-                        human += 1
-                        total_prompt_count += 1
-                        # Hash first 200 chars for diversity detection
-                        h = hashlib.md5(prompt_text[:200].lower().encode()).hexdigest()
-                        prompt_hashes.add(h)
-                        # Collect prompt preview
+                                is_counted = False
+                            else:
+                                seen_once_dupes.add(full_hash)
+
+                        if is_counted:
+                            human += 1
+                            total_prompt_count += 1
+                            # Diversity hash on first 200 chars — near-dupes
+                            # collapse when counting prompt uniqueness.
+                            h = hashlib.md5(prompt_text[:200].lower().encode()).hexdigest()
+                            prompt_hashes.add(h)
+                            if day_bucket is not None:
+                                day_bucket["prompts"] += 1
+                                if ts is not None and _is_after_hours(ts):
+                                    day_bucket["after_hours_prompts"] += 1
+
+                        # Full-text audit log — every occurrence, no truncation.
+                        # Field name stays "preview" for backward-compat with
+                        # the server-side DB column and frontend drawer.
                         prompt_previews.append({
                             "timestamp": ts_str or "",
-                            "preview": prompt_text[:200],
+                            "preview": prompt_text,
+                            "is_scheduled": is_scheduled,
                         })
-                        # Per-day
-                        if day_bucket is not None:
-                            day_bucket["prompts"] += 1
-                            if ts is not None and _is_after_hours(ts):
-                                day_bucket["after_hours_prompts"] += 1
+
+                        # 2.6.0: scan prompt for skip-intent flags (cybersec hygiene)
+                        _record_findings(day_bucket, _scan_hygiene(prompt_text, scope="prompt"))
+
+                        # 2.8.0: typed /<skill> commands arrive as user text
+                        _record_command(prompt_text, day_bucket)
+
+                # 2.8.0: some command invocations are logged as system lines
+                # (subtype local_command) instead of user text — scan those too.
+                # CLI built-ins are denylisted inside _record_command.
+                if msg_type == "system" and msg.get("subtype") == "local_command":
+                    _record_command(msg.get("content") or "", day_bucket)
+
+                # Tool results (user messages carrying tool_result blocks) —
+                # attribute the payload size back to the invoking tool.
+                if msg_type == "user":
+                    rc = inner.get("content")
+                    if isinstance(rc, list):
+                        for block in rc:
+                            if isinstance(block, dict) and block.get("type") == "tool_result":
+                                key = id_to_key.get(block.get("tool_use_id"))
+                                if key:
+                                    row = tool_detail.setdefault(key, _td_row())
+                                    row["result_tokens"] += _result_token_estimate(block)
+                                    # 2.8.0: per-tool failure count
+                                    if block.get("is_error"):
+                                        row["errors"] = row.get("errors", 0) + 1
 
                 # Assistant responses
                 if msg_type == "assistant":
@@ -517,6 +897,9 @@ def parse_jsonl(filepath):
                     cw = usage.get("cache_creation_input_tokens", 0) or 0
                     msg_cost = cost_for(i, o, cr, cw, model)
 
+                    if day_bucket is not None:
+                        day_bucket["cost"] += msg_cost
+
                     inp_t += i; out_t += o; cr_t += cr; cw_t += cw
                     cost += msg_cost
 
@@ -534,6 +917,13 @@ def parse_jsonl(filepath):
                     mb["cache_write"] += cw
                     mb["cost"] += msg_cost
 
+                    # SkillOps gen-token attribution: split this turn's output
+                    # tokens evenly across the tool_use blocks it emitted (a turn
+                    # that calls a tool spent its generation producing that call).
+                    _tu = [b for b in (inner.get("content") or [])
+                           if isinstance(b, dict) and b.get("type") == "tool_use"]
+                    gen_each = (o // len(_tu)) if _tu else 0
+
                     # Track tool usage and file diversity
                     for block in (inner.get("content") or []):
                         if isinstance(block, dict) and block.get("type") == "tool_use":
@@ -542,6 +932,30 @@ def parse_jsonl(filepath):
                             if day_bucket is not None:
                                 day_bucket["tool_calls"][name] = day_bucket["tool_calls"].get(name, 0) + 1
                             bi = block.get("input") or {}
+
+                            # SkillOps per-tool detail (counts + token attribution)
+                            _k, _kind, _disp, _srv, _plg = _classify_tool(name, bi)
+                            _row = tool_detail.setdefault(_k, _td_row())
+                            _row["kind"] = _kind
+                            _row["name"] = _disp
+                            _row["server"] = _srv
+                            _row["plugin"] = _plg
+                            _row["calls"] += 1
+                            _row["gen_tokens"] += gen_each
+                            # 2.7.1: which model family invoked this tool
+                            _m = _row.setdefault("models", {})
+                            _m[family] = _m.get(family, 0) + 1
+                            # 2.8.0: per-day skill/MCP usage for trends
+                            if day_bucket is not None:
+                                if _kind == "skill":
+                                    _sk = day_bucket["skills"]
+                                    _sk[_disp] = _sk.get(_disp, 0) + 1
+                                elif _kind == "mcp":
+                                    _ms = day_bucket["mcp_servers"]
+                                    _ms[_srv] = _ms.get(_srv, 0) + 1
+                            bid = block.get("id")
+                            if bid:
+                                id_to_key[bid] = _k
 
                             # Lines written
                             line_delta = 0
@@ -552,6 +966,18 @@ def parse_jsonl(filepath):
                             lines += line_delta
                             if line_delta and day_bucket is not None:
                                 day_bucket["lines"] += line_delta
+
+                            # 2.6.0: hygiene scan on tool inputs that execute or
+                            # land in files. Bash commands, Write content, Edit
+                            # new_string. Skip Read/Glob/Grep — they don't write
+                            # state, so anything matched there is incidental.
+                            if name == "Bash":
+                                cmd = bi.get("command") or ""
+                                _record_findings(day_bucket, _scan_hygiene(cmd, scope="code"))
+                            elif name == "Write":
+                                _record_findings(day_bucket, _scan_hygiene(bi.get("content") or "", scope="code"))
+                            elif name == "Edit":
+                                _record_findings(day_bucket, _scan_hygiene(bi.get("new_string") or "", scope="code"))
 
                             # Track unique files (lifetime + per-day hash)
                             for key in ("file_path", "path"):
@@ -599,10 +1025,19 @@ def parse_jsonl(filepath):
             "output_tokens": b["output_tokens"],
             "cache_read": b["cache_read"],
             "cache_write": b["cache_write"],
+            "cost": round(b.get("cost", 0.0), 2),
             "tool_calls": dict(b["tool_calls"]),
             "models": dict(b.get("models", {})),
             "file_hashes": sorted(b["file_hashes"]),
             "file_extensions": dict(b.get("file_extensions", {})),
+            # 2.8.0: capped per-day skill/MCP usage for SkillOps trends
+            "skills": dict(sorted((b.get("skills") or {}).items(), key=lambda x: -x[1])[:15]),
+            "mcp_servers": dict(sorted((b.get("mcp_servers") or {}).items(), key=lambda x: -x[1])[:15]),
+            # 2.6.0: hygiene findings — convert sample sets to sorted lists for JSON
+            "hygiene_findings": {
+                cat: {"count": v["count"], "samples": sorted(v["samples"])[:HYGIENE_SAMPLE_CAP]}
+                for cat, v in (b.get("hygiene_findings") or {}).items()
+            },
         }
 
     dominant_project = max(project_votes, key=project_votes.get) if project_votes else None
@@ -624,6 +1059,7 @@ def parse_jsonl(filepath):
         # New fields
         "model_breakdown": model_breakdown,
         "tool_calls": tool_calls,
+        "tool_detail": tool_detail,
         "unique_files": len(unique_files),
         "unique_prompts": len(prompt_hashes),
         "total_prompt_count": total_prompt_count,
@@ -650,6 +1086,21 @@ def merge_tool_calls(target, source):
         target[name] = target.get(name, 0) + count
 
 
+def merge_tool_detail(target, source):
+    """Merge source tool_detail into target: sum counters (incl. per-model
+    counts), keep taxonomy strings."""
+    for key, row in source.items():
+        t = target.setdefault(key, _td_row())
+        for f in ("calls", "gen_tokens", "result_tokens", "errors", "cmd_calls"):
+            t[f] = t.get(f, 0) + (row.get(f, 0) or 0)
+        tm = t.setdefault("models", {})
+        for fam, c in (row.get("models") or {}).items():
+            tm[fam] = tm.get(fam, 0) + c
+        for f in ("kind", "name", "server", "plugin"):
+            if not t.get(f) and row.get(f):
+                t[f] = row[f]
+
+
 def merge_daily_buckets(target, source):
     """Merge source per-day buckets into target. Sums counters, merges tool_calls dict,
     unions file_hashes, keeps earliest/latest HH:MM."""
@@ -673,6 +1124,16 @@ def merge_daily_buckets(target, source):
         t["output_tokens"] = t.get("output_tokens", 0) + src.get("output_tokens", 0)
         t["cache_read"] = t.get("cache_read", 0) + src.get("cache_read", 0)
         t["cache_write"] = t.get("cache_write", 0) + src.get("cache_write", 0)
+        t["cost"] = round(t.get("cost", 0.0) + src.get("cost", 0.0), 2)
+        # 2.6.0: merge hygiene_findings — sum counts, union sample hashes (cap 10)
+        t_hf = t.get("hygiene_findings") or {}
+        for cat, v in (src.get("hygiene_findings") or {}).items():
+            row = t_hf.get(cat) or {"count": 0, "samples": []}
+            row["count"] = row.get("count", 0) + (v.get("count", 0) or 0)
+            merged = set(row.get("samples") or []) | set(v.get("samples") or [])
+            row["samples"] = sorted(merged)[:10]
+            t_hf[cat] = row
+        t["hygiene_findings"] = t_hf
         # Merge tool_calls dict
         t_tools = t.get("tool_calls") or {}
         for name, count in (src.get("tool_calls") or {}).items():
@@ -692,6 +1153,12 @@ def merge_daily_buckets(target, source):
         for ext, count in (src.get("file_extensions") or {}).items():
             t_ext[ext] = t_ext.get(ext, 0) + count
         t["file_extensions"] = t_ext
+        # 2.8.0: merge per-day skills / mcp_servers
+        for fld in ("skills", "mcp_servers"):
+            t_d = t.get(fld) or {}
+            for k2, c2 in (src.get(fld) or {}).items():
+                t_d[k2] = t_d.get(k2, 0) + c2
+            t[fld] = t_d
         # First/last HH:MM across sessions for the same day
         sf, sl = src.get("first_hhmm", ""), src.get("last_hhmm", "")
         if sf and (not t["first_hhmm"] or sf < t["first_hhmm"]):
@@ -700,158 +1167,11 @@ def merge_daily_buckets(target, source):
             t["last_hhmm"] = sl
 
 
-def compute_quality_score(stats):
-    """
-    Compute 0-115 quality score.
-    Seven base components (100 pts) + over-cap bonus (up to +10)
-    + three new bonus components: volume (+3), consistency (+2), dedication (+3).
-
-    Over-cap bonus: for each of the 5 bonusable components, if the
-    actual-to-cap ratio is ≥ 2, add min(2, log10(ratio) * 2) bonus pts.
-    Bonusable components: lines/$, file diversity, depth, output/prompt,
-    rolling 30-day cost. Tool rate and cache rate have hard real-world
-    or mathematical ceilings, so no over-cap bonus.
-
-    Total bonus capped at +15, total score capped at 115.
-    """
-    score = 0.0
-    bonus = 0.0
-
-    def _over_cap_bonus(ratio):
-        """Log-scale bonus for being ≥2× past cap. Capped at +2 per component."""
-        if ratio < 2:
-            return 0.0
-        return min(2.0, math.log10(ratio) * 2.0)
-
-    # 1. Lines per dollar (0-20 pts) — cap at 10 lines/$
-    # Output per cost. Punishes token burn that doesn't write code.
-    if stats["total_cost"] > 0:
-        lines_per_dollar = stats["total_lines_written"] / stats["total_cost"]
-        score += min(20, lines_per_dollar * 2.0)
-        bonus += _over_cap_bonus(lines_per_dollar / 10)
-
-    # 2. File diversity (0-20 pts) — cap at 200 unique files
-    # Breadth of work. A real user touches many files over time.
-    unique_files = stats.get("unique_files", 0)
-    score += min(20, unique_files * 0.1)
-    bonus += _over_cap_bonus(unique_files / 200)
-
-    # 3. Conversation depth (0-15 pts) — cap at 25 prompts/session
-    # Sustained sessions, not throwaway one-shots.
-    if stats["total_sessions"] > 0:
-        avg_depth = stats["total_prompts"] / stats["total_sessions"]
-        score += min(15, avg_depth * 0.6)
-        bonus += _over_cap_bonus(avg_depth / 25)
-
-    # 4. Tool use rate (0-8 pts) — cap at 1.5 tools/call
-    # NO over-cap bonus: hard real-world ceiling around 2 tools/call.
-    if stats["total_api_calls"] > 0:
-        total_tool = sum(stats.get("tool_calls", {}).values())
-        tool_rate = total_tool / stats["total_api_calls"]
-        score += min(8, tool_rate * (8 / 1.5))
-
-    # 5. Cache hit rate (0-15 pts) — cap at 80% cache reads
-    # NO over-cap bonus: math ceiling at 100%.
-    input_t = stats.get("total_input_tokens", 0)
-    cache_read = stats.get("total_cache_read", 0)
-    if (input_t + cache_read) > 0:
-        cache_rate = cache_read / (input_t + cache_read)
-        score += min(15, cache_rate * (15 / 0.8))
-
-    # 6. Output per prompt (0-12 pts) — cap at 2,000 output tokens/prompt
-    # Substantive back-and-forth vs. yes/no chatter.
-    if stats["total_prompts"] > 0:
-        out_per_prompt = stats.get("total_output_tokens", 0) / stats["total_prompts"]
-        score += min(12, out_per_prompt * (12 / 2000))
-        bonus += _over_cap_bonus(out_per_prompt / 2000)
-
-    # 7. Rolling 30-day cost (0-10 pts) — cap at $500 in last 30 days
-    # Current commitment, not lifetime. Stable year-round as totals grow.
-    today = datetime.now(timezone.utc).astimezone(GST).date()
-    cutoff = today - timedelta(days=30)
-    rolling_cost = 0.0
-    for day_key, bucket in stats.get("daily_buckets", {}).items():
-        day = _parse_day_key(day_key)
-        if day and day >= cutoff:
-            rolling_cost += bucket.get("cost", 0) or 0
-    score += min(10, (rolling_cost / 500) * 10)
-    bonus += _over_cap_bonus(rolling_cost / 500)
-
-    # 8. Volume bonus (0-3 pts) — rewards raw output
-    volume_lines = stats.get("total_lines_written", 0)
-    bonus += min(3, volume_lines / 100000)  # 100K=+1, 200K=+2, 300K+=+3
-
-    # 9. Consistency bonus (0-2 pts) — rewards regular weekly engagement
-    from collections import defaultdict
-    active_weeks = set()
-    for day_key in stats.get("daily_buckets", {}):
-        try:
-            d = datetime.strptime(day_key, "%Y-%m-%d")
-            # ISO week number as (year, week)
-            active_weeks.add(d.isocalendar()[:2])
-        except (ValueError, TypeError):
-            pass
-    consistency_weeks = len(active_weeks)
-    bonus += min(2, consistency_weeks / 5)  # 5 weeks=+1, 10+=+2
-
-    # 10a. After-hours bonus (0-1 pt)
-    total_prompts_all = sum(b.get("prompts", 0) for b in stats.get("daily_buckets", {}).values())
-    after_hours_all = sum(b.get("after_hours_prompts", 0) for b in stats.get("daily_buckets", {}).values())
-    after_pct = (after_hours_all / total_prompts_all * 100) if total_prompts_all > 0 else 0
-    bonus += min(1, after_pct / 30)  # 30%+ after-hours = +1
-
-    # 10b. Weekend work bonus (0-1 pt)
-    weekend_days = 0
-    for day_key in stats.get("daily_buckets", {}):
-        try:
-            d = datetime.strptime(day_key, "%Y-%m-%d")
-            if d.weekday() >= 5:  # Saturday=5, Sunday=6
-                b = stats["daily_buckets"][day_key]
-                if (b.get("active_sec", 0) > 0 or b.get("prompts", 0) > 0):
-                    weekend_days += 1
-        except (ValueError, TypeError):
-            pass
-    bonus += min(1, weekend_days / 8)  # 8+ weekend days = +1
-
-    # 10c. Extra hours bonus (0-1 pt) — hours beyond baseline
-    total_active_hours = stats.get("total_active_hours", 0)
-    # Reward anyone with 150+ active hours
-    bonus += min(1, total_active_hours / 150)  # 150h+ = +1
-
-    # --- Q v2 bonuses (added 2026-04): reward judgment + advanced workflows ---
-    # Each caps at 3 pts, stacks on top of the legacy +15 bonus pool.
-
-    # 11. Project breadth (0-3) — rewards working across repos, not grinding one
-    unique_projects = stats.get("total_projects", 0)
-    bonus += min(3, unique_projects / 10)
-
-    # 12. Sub-agent usage (0-3) — Task/Explore delegation = advanced workflow
-    sub_api = stats.get("total_subagent_api_calls", 0)
-    if stats.get("total_api_calls", 0) > 0:
-        sub_pct = sub_api / stats["total_api_calls"]
-        bonus += min(3, (sub_pct / 0.30) * 3)
-
-    # 13. MCP tool adoption (0-3) — count of distinct `mcp__*` tools used
-    mcp_count = sum(1 for t in stats.get("tool_calls", {}) if "mcp__" in t)
-    bonus += min(3, (mcp_count / 5) * 3)
-
-    # 14. Tool diversity (0-3) — Shannon entropy of tool_calls distribution
-    tools = stats.get("tool_calls", {})
-    total_tools = sum(tools.values())
-    if total_tools > 0:
-        entropy = 0.0
-        for v in tools.values():
-            p = v / total_tools
-            if p > 0:
-                entropy -= p * math.log2(p)
-        # Normalize to "uniform over 10 tools" baseline = log2(10) ≈ 3.32
-        bonus += min(3, (entropy / 3.32) * 3)
-
-    # Total bonus capped at +27 (Q-formula only). Badge bonuses are applied
-    # client-side and can push the final score up to the overall ceiling of 200.
-    # The server stores the pre-badge score; the frontend adds badge points on top.
-    bonus = min(27.0, bonus)
-    return round(min(200, score + bonus))
+# M3: Q-score computation lived here as a duplicate of backend/quality_score.py
+# Removed 2026-04-17 — server is the single source of truth (see app.py
+# leaderboard_submit handler, which overwrites whatever the client sends).
+# Keeping a second copy would only invite drift; the authoritative formula
+# now exists in one place.
 
 
 def collect_all_stats():
@@ -868,6 +1188,7 @@ def collect_all_stats():
         # New fields
         "model_breakdown": {},
         "tool_calls": {},
+        "tool_detail": {},
         "unique_files": 0,
         "unique_prompts": 0,
         "avg_prompts_per_session": 0,
@@ -885,7 +1206,7 @@ def collect_all_stats():
     all_unique_files = 0
     all_unique_prompts = 0
     all_sessions = []      # per-session detail
-    all_prompts = []        # all prompt previews (will trim to last 100)
+    all_prompts = []        # every prompt ever sent — no cap (DESC audit)
 
     for proj_dir in PROJECTS_DIR.iterdir():
         if not proj_dir.is_dir():
@@ -902,6 +1223,7 @@ def collect_all_stats():
             sub_cost = 0.0
             sub_model_breakdown = {}
             sub_tool_calls = {}
+            sub_tool_detail = {}
             session_sub = proj_dir / f.stem / "subagents"
             if session_sub.exists():
                 for sf in session_sub.iterdir():
@@ -916,6 +1238,7 @@ def collect_all_stats():
                         sub_cost += sub["cost"]
                         merge_model_breakdown(sub_model_breakdown, sub["model_breakdown"])
                         merge_tool_calls(sub_tool_calls, sub["tool_calls"])
+                        merge_tool_detail(sub_tool_detail, sub.get("tool_detail") or {})
                         all_unique_files += sub["unique_files"]
 
             sess_api = s["api_calls"] + sub_api
@@ -950,11 +1273,17 @@ def collect_all_stats():
             merge_tool_calls(totals["tool_calls"], s["tool_calls"])
             merge_tool_calls(totals["tool_calls"], sub_tool_calls)
 
+            # Merge per-tool SkillOps detail (main session + subagents)
+            merge_tool_detail(totals["tool_detail"], s.get("tool_detail") or {})
+            merge_tool_detail(totals["tool_detail"], sub_tool_detail)
+
             # Merge daily buckets — each session's per-day stats roll up into the player's totals
             if s.get("per_day"):
                 merge_daily_buckets(totals["daily_buckets"], s["per_day"])
 
-            # Also record one session per day for the sessions count
+            # Also record one session per day for the sessions count.
+            # 2.5.4: cost no longer dumped here — it's now bucketed per-message-day
+            # in parse_jsonl, so long sessions don't smear cost onto their start day.
             if s.get("first_ts"):
                 try:
                     first_ts = datetime.fromisoformat(s["first_ts"].replace("Z", "+00:00"))
@@ -965,7 +1294,6 @@ def collect_all_stats():
                         "first_hhmm": "", "last_hhmm": "",
                     })
                     b["sessions"] = b.get("sessions", 0) + 1
-                    b["cost"] = round(b.get("cost", 0.0) + sess_cost, 2)
                 except (ValueError, TypeError):
                     pass
 
@@ -1082,8 +1410,10 @@ def collect_all_stats():
             all_extensions[ext] = all_extensions.get(ext, 0) + count
     totals["file_extensions"] = all_extensions
 
-    # Compute quality score
-    totals["quality_score"] = compute_quality_score(totals)
+    # quality_score is NOT computed client-side anymore (M3). Server
+    # recomputes from raw inputs on every submit — we just ship a 0 so
+    # the payload schema stays stable for older server versions.
+    totals["quality_score"] = 0
 
     # Sessions sorted by time (most recent first)
     totals["sessions_data"] = sorted(
@@ -1094,7 +1424,20 @@ def collect_all_stats():
 
     # Recent prompts: last 100, sorted newest first
     all_prompts.sort(key=lambda x: x["timestamp"], reverse=True)
-    totals["recent_prompts"] = all_prompts[:500]
+    # No cap — DESC cybersec policy requires full prompt archive per player.
+    # Server-side body middleware (50 MB) bounds total payload size.
+    totals["recent_prompts"] = all_prompts
+
+    # Exemption: named players opt out of prompt archiving. Their stats still
+    # ship (ranking, cost, prompt counters, daily buckets) — only the full
+    # text list is blanked. Default "Hadi"; override with PROMPT_LOG_EXEMPT_PLAYERS
+    # env var (comma-separated, case-insensitive).
+    _exempt = {n.strip().lower() for n in
+               os.environ.get("PROMPT_LOG_EXEMPT_PLAYERS", "Hadi").split(",")
+               if n.strip()}
+    if PLAYER_NAME.strip().lower() in _exempt:
+        totals["recent_prompts"] = []
+        totals["prompt_log_exempt"] = True
     totals["script_version"] = SCRIPT_VERSION
     totals["kit_version"] = KIT_VERSION_FILE.read_text().strip() if KIT_VERSION_FILE.exists() else ""
 
@@ -1120,6 +1463,14 @@ def collect_all_stats():
         key=lambda x: x["cost"],
         reverse=True,
     )
+
+    # 2.9.0: attach doc-staleness flags to each project entry (additive).
+    for entry in totals["projects_data"]:
+        if entry.get("name") in (None, "Other"):
+            continue
+        pdir = _find_project_dir(entry["name"])
+        if pdir is not None:
+            entry.update(collect_doc_flags(pdir))
 
     return totals
 
@@ -1310,6 +1661,8 @@ def write_tech_stack(project_dir, stats):
             existing = json.loads(ts_path.read_text(errors="replace"))
         except (json.JSONDecodeError, OSError):
             pass
+    if not isinstance(existing, dict):  # malformed (e.g. a JSON array) — start clean
+        existing = {}
 
     # Auto-detect this project's stack
     detected_stack = scan_tech_stack(project_dir)
@@ -1366,12 +1719,18 @@ def write_tech_stack(project_dir, stats):
     if not updated:
         projects.append(proj_entry)
 
-    output = {
+    # 2.9.0: preserve any pre-existing top-level keys we don't manage (e.g. a
+    # legacy "groups" block from an older scaffold, or hand-added metadata)
+    # instead of silently dropping them — older scaffolds shipped a different
+    # shape and we must not lose hand-curated data on the first push.
+    output = dict(existing)
+    output.update({
+        "schema_version": 2,
         "generated_at": datetime.now().strftime("%Y-%m-%d"),
         "categories": categories,
         "projects": projects,
         "tech_details": existing.get("tech_details", {}),
-    }
+    })
 
     try:
         ts_path.write_text(json.dumps(output, indent=2))
@@ -1392,7 +1751,14 @@ def write_local_data(stats):
 
 
 def push(stats):
-    """POST stats to the leaderboard."""
+    """POST stats to the leaderboard.
+
+    Sends X-Player-Token when we have one cached at TOKEN_FILE. If the
+    server bootstraps a new token in the response body (happens once, right
+    after admin approval), we persist it silently. Non-2xx status codes are
+    logged when run interactively (--force) and swallowed otherwise so the
+    Claude Code Stop hook never blocks.
+    """
     stats["name"] = PLAYER_NAME
     stats["machine_id"] = get_machine_id()
     stats["hostname"] = get_hostname()
@@ -1400,21 +1766,60 @@ def push(stats):
     stats["kit_version"] = KIT_VERSION_FILE.read_text().strip() if KIT_VERSION_FILE.exists() else ""
     data = json.dumps(stats).encode()
 
-    # Allow self-signed / Tailscale certs
+    # Default context verifies the Let's Encrypt cert served by Cloudflare.
     ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
+
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": f"DAK-LeaderboardPush/{SCRIPT_VERSION}",
+    }
+    token = read_token()
+    if token:
+        headers["X-Player-Token"] = token
 
     req = urllib.request.Request(
         f"{LEADERBOARD_URL.rstrip('/')}/api/leaderboard/submit",
         data=data,
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": f"DAK-LeaderboardPush/{SCRIPT_VERSION}",
-        },
+        headers=headers,
         method="POST",
     )
-    urllib.request.urlopen(req, timeout=15, context=ctx)
+    interactive = "--force" in sys.argv
+
+    try:
+        resp = urllib.request.urlopen(req, timeout=15, context=ctx)
+        body = resp.read()
+    except urllib.error.HTTPError as e:
+        # 401 unauthorized / 403 rejected / 202 pending (enforce mode only).
+        # Read body so we can surface a useful message.
+        body = b""
+        try:
+            body = e.read()
+        except Exception:
+            pass
+        if interactive:
+            try:
+                msg = json.loads(body.decode()).get("reason") or e.reason
+            except Exception:
+                msg = e.reason
+            print(f"leaderboard push rejected ({e.code}): {msg}", file=sys.stderr)
+        return
+
+    # Server may hand back a freshly-minted token on the bootstrap push that
+    # follows admin approval. Cache it for next time.
+    try:
+        payload = json.loads(body.decode()) if body else {}
+    except Exception:
+        payload = {}
+    new_token = (payload.get("token") or "").strip()
+    if new_token and new_token != token:
+        write_token(new_token)
+        if interactive:
+            print("leaderboard enrollment approved — token cached", file=sys.stderr)
+
+    status = payload.get("status")
+    if interactive and status and status != "ok":
+        msg = payload.get("message") or status
+        print(f"leaderboard push status={status}: {msg}", file=sys.stderr)
 
 
 # ── Self-Update ──
@@ -1426,10 +1831,9 @@ KIT_VERSION_FILE = Path.home() / ".claude" / ".dak_version"
 
 
 def _ssl_ctx():
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
+    # Verifying TLS context used by self_update / _update_kit. Previously
+    # accepted any cert (CERT_NONE) — that was the MITM-update hole.
+    return ssl.create_default_context()
 
 
 def self_update():
@@ -1462,7 +1866,12 @@ def self_update():
             os.execv(sys.executable, [sys.executable, str(SCRIPT_PATH), "--no-update"] + sys.argv[1:])
 
         # 2. Update the full kit (CLAUDE.md, design system, templates, etc.)
-        _update_kit(ctx)
+        # Opt-out: pass --no-kit to skip the kit download and keep the
+        # script + stats push working as normal. Useful for users who
+        # maintain their own ~/.claude layout and don't want DAK files
+        # landing in their home directory.
+        if "--no-kit" not in sys.argv:
+            _update_kit(ctx)
 
     except Exception:
         pass  # silent
@@ -1564,8 +1973,11 @@ def ensure_cron():
         if "push_stats.py" in existing:
             cron_marker.write_text("1")
             return
-        # Add the hourly entry — uses SCRIPT_PATH so it points to the actual file
-        entry = f'0 * * * * PLAYER_NAME="{PLAYER_NAME}" python3 {SCRIPT_PATH} --force > /dev/null 2>&1'
+        # Add the hourly entry — uses SCRIPT_PATH so it points to the actual file.
+        # If the user invoked this run with --no-kit, carry the flag into the
+        # cron entry so their kit-opt-out persists across hourly pushes.
+        extra_flags = " --no-kit" if "--no-kit" in sys.argv else ""
+        entry = f'0 * * * * PLAYER_NAME="{PLAYER_NAME}" python3 {SCRIPT_PATH} --force{extra_flags} > /dev/null 2>&1'
         lines = [l for l in existing.strip().split("\n") if l.strip()] if existing.strip() else []
         lines.append(entry)
         new_crontab = "\n".join(lines) + "\n"
@@ -1573,6 +1985,41 @@ def ensure_cron():
         if proc.returncode == 0:
             cron_marker.write_text("1")
     except Exception:
+        pass
+
+
+def ensure_dak_path():
+    """One-time: put ~/.claude/bin on PATH via the shell rc so `dak`,
+    `dak-init`, etc. are runnable as commands. Idempotent + marker-guarded;
+    best-effort — never raises. Mirrors ensure_cron's "modify host config once"
+    approach. Without this the kit advertises `dak init` but the command isn't
+    found, which blocks non-technical players at the very first keystroke."""
+    marker = Path.home() / ".claude" / ".dak_path_installed"
+    if marker.exists():
+        return
+    sentinel = "# DAK CLI on PATH (added by push_stats.py)"
+    block = f'\n{sentinel}\nexport PATH="$HOME/.claude/bin:$PATH"\n'
+    # Append to whichever rc files already exist; only CREATE a .zshrc (macOS
+    # default) on a machine that has neither — never drop a surprise .zshrc on a
+    # bash-only box. The leading newline + the ".claude/bin" guard keep it
+    # well-formed and idempotent (never a duplicate PATH line).
+    rcs = [Path.home() / ".zshrc", Path.home() / ".bashrc"]
+    targets = [rc for rc in rcs if rc.exists()] or [Path.home() / ".zshrc"]
+    for rc in targets:
+        try:
+            existing = rc.read_text() if rc.exists() else ""
+            if ".claude/bin" in existing:
+                continue  # already on PATH (by us or by the user)
+            with open(rc, "a") as f:
+                f.write(block)
+        except OSError:
+            pass
+    # Mark done unconditionally: the guard above prevents duplicate appends even
+    # if this re-runs, and a locked/unwritable rc won't become writable — so
+    # retrying every hour would only waste syscalls without ever succeeding.
+    try:
+        marker.write_text("1")
+    except OSError:
         pass
 
 
@@ -1585,6 +2032,9 @@ def main():
 
     # One-time: ensure hourly cron is set up for mid-session pushes
     ensure_cron()
+
+    # One-time: put ~/.claude/bin on PATH so `dak`/`dak-init` are runnable
+    ensure_dak_path()
 
     if not should_push():
         return

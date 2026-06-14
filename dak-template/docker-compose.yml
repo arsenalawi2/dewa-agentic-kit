@@ -35,9 +35,19 @@ services:
     #   - .:/repo:ro
 
   frontend:
-    build: ./frontend
+    # Dev-mode service: Vite + HMR with the shared DAK design system bind-mounted
+    # at /ds (vite.config.js prefers /ds when present). The multi-stage
+    # frontend/Dockerfile is kept for a future prod build, which would need the
+    # design system vendored into the build context.
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
     ports:
       - "3XXX:3400"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - ${HOME}/design-system:/ds:ro
     depends_on:
       - backend
 

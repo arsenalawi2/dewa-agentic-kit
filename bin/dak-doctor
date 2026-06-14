@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+#
+# dak-doctor — plain-English first-run health check.
+#
+# Run inside a DAK project (or anywhere, for the machine-level checks).
+# Answers the question a non-technical player can't otherwise answer:
+# "is this thing actually about to work, and if not, what's wrong?"
+#
+# Exit code is the number of failed checks (0 = all good).
+set -uo pipefail
+
+PASS=0; FAIL=0
+ok()   { printf "  \033[32m✓\033[0m %s\n" "$1"; PASS=$((PASS+1)); }
+bad()  { printf "  \033[31m✗\033[0m %s\n"  "$1"; FAIL=$((FAIL+1)); }
+note() { printf "    \033[2m%s\033[0m\n" "$1"; }
+
+ver_ge() { [[ "$(printf '%s\n%s' "$2" "$1" | sort -V | head -1)" == "$2" ]]; }
+
+echo "dak doctor — checking machine + project readiness"
+echo
+echo "Machine:"
+
+# Docker daemon
+if command -v docker >/dev/null 2>&1; then
+  if docker info >/dev/null 2>&1; then ok "Docker daemon is running"
+  else bad "Docker is installed but the daemon isn't running"; note "Start Docker Desktop, then re-run."; fi
+else bad "Docker not found"; note "Install Docker Desktop."; fi
+
+# Compose v2
+if docker compose version >/dev/null 2>&1; then ok "Docker Compose v2 available"
+else bad "Docker Compose v2 not available"; note "Update Docker Desktop (Compose v2 ships with it)."; fi
+
+# Node 20+
+if command -v node >/dev/null 2>&1; then
+  NV="$(node -v 2>/dev/null | sed 's/^v//')"
+  if ver_ge "$NV" "20.0.0"; then ok "Node $NV (>= 20)"; else bad "Node $NV is below the DAK floor (20+)"; fi
+else note "node not on PATH (fine — Docker runs the frontend)"; fi
+
+# Python 3.12+
+if command -v python3 >/dev/null 2>&1; then
+  PV="$(python3 -c 'import platform;print(platform.python_version())' 2>/dev/null)"
+  if ver_ge "$PV" "3.12.0"; then ok "Python $PV (>= 3.12)"; else note "Python $PV is below 3.12 (fine — Docker runs the backend)"; fi
+fi
+
+# Design system resolves
+DS=""
+if [[ -f "/ds/index.css" ]]; then DS="/ds"
+elif [[ -f "$HOME/design-system/index.css" ]]; then DS="$HOME/design-system"; fi
+if [[ -n "$DS" ]]; then ok "Design system resolves at $DS"
+else bad "Design system not found"; note "Expected ~/design-system/index.css — styles won't load without it."; fi
+
+# Project-level checks (only if we're inside a project)
+if [[ -f "docker-compose.yml" ]]; then
+  echo
+  echo "Project ($(basename "$PWD")):"
+
+  if [[ -f ".env" ]]; then
+    PW="$(grep -E '^DETAILED_PASSWORD=' .env | cut -d= -f2-)"
+    if [[ -n "$PW" && "$PW" != "changeme" ]]; then ok ".env present with a real DETAILED_PASSWORD"
+    else bad ".env has an empty/placeholder DETAILED_PASSWORD"; note "Admin routes will 503. Set a value or re-run dak init."; fi
+  else
+    bad ".env is missing"; note "Run: cp .env.example .env  (dak init normally generates this for you)"
+  fi
+
+  # Ports declared in compose still free?
+  for port in $(grep -oE '"[0-9]{3,5}:[0-9]{3,5}"' docker-compose.yml | sed 's/"//g; s/:.*//'); do
+    if lsof -iTCP -sTCP:LISTEN -P 2>/dev/null | grep -q ":$port "; then
+      note "port $port already in use — 'docker compose up' may fail to bind it"
+    fi
+  done
+  ok "Port check done"
+fi
+
+echo
+if [[ $FAIL -eq 0 ]]; then printf "\033[32mAll %d checks passed.\033[0m\n" "$PASS"
+else printf "\033[31m%d issue(s) above\033[0m, %d ok.\n" "$FAIL" "$PASS"; fi
+exit $FAIL

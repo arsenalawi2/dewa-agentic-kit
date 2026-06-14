@@ -177,7 +177,7 @@ The script outputs JSON that the user reviews and enriches with hand-curated met
 - Use the EZ Design System throughout (tokens, components, utilities)
 - Section backgrounds alternate: bg-primary / section-alt (bg-secondary)
 - Section pattern: uppercase label (10px, accent color) + title (24px) + description + content
-- Stats use Space Grotesk display font, large sizes (32-48px)
+- Stats use the display font, large sizes (32-48px)
 - Status pills: running = green bg, stopped = gray bg, partial = amber bg
 - Maturity pills: Stable = green, Emerging = blue, Legacy = gray
 - Lock-in risk pills: Low = green, Medium = amber, High = red

@@ -218,20 +218,17 @@ docker system df
 - Semantic class names that read like English, not `px-4 py-2 bg-gray-100`
 - Dark mode built in — one class toggle
 - Presentation-ready by default — no styling debt
-- Three Google Fonts, warm neutrals, one accent color — done
+- One UI family (Inter), warm neutrals, green primary + violet secondary — done
 
-**How to use:**
-```html
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@0,400;0,500;0,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-```
+**How to use** — one import (pulls tokens → base → components in order, plus Inter):
 
 ```css
 @import '~/design-system/index.css';
 ```
 
-Or copy the design-system/ directory into your project and import from there.
+Or copy the design-system/ directory into your project and import from there. Hand-wiring the three layers individually is also fine — order matters, tokens first (see `~/design-system/DESIGN_SYSTEM.md`).
 
-**Currency display:** All financial values use AED with the UAE Dirham symbol font (`design-system/fonts/dirham-symbol.woff2`). See `design-system/dirham-symbol.md` for setup and patterns. Backend stores USD; convert on the frontend using the fixed peg rate (3.6725).
+**Currency display:** All financial values use AED with the UAE Dirham symbol font (`design-system/fonts/dirham-symbol.woff2`, loaded by base.css — use `.dirham-symbol` / `.currency-aed`, or `<Aed>` in Vue). See the Currency section of `design-system/DESIGN_SYSTEM.md`. Backend stores USD; convert on the frontend using the fixed peg rate (3.6725).
 
 ## Common Patterns
 

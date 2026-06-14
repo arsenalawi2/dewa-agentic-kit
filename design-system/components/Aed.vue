@@ -1,21 +1,21 @@
 <script setup>
-// <Aed :value="1234" /> → ê 1,234 (rendered in the UAESymbol font so
-// the dirham glyph shows properly in any browser).
+// <Aed :value="1234" /> → ê 1,234 — rendered in the UAESymbol font so the
+// official UAE Dirham glyph shows correctly in any browser.
 //
-// DAK default currency helper. One import, zero formatting ambiguity.
+// The Vue counterpart to the .dirham-symbol CSS utility. Same public API as the
+// global ~/design-system component, so markup ports between the two systems.
+// Requires the design system's CSS (tokens.css + base.css) to be loaded — that's
+// where the UAESymbol @font-face and --font-currency token live.
+//
 // Usage:
-//   <Aed :value="1234" />               → ê 1,234
-//   <Aed :value="1234.50" :decimals="2" /> → ê 1,234.50
-//   <Aed :value="0.4"  :from-usd="true" /> → ê 1.47   (USD → AED at 3.6725)
-//   <Aed :value="999"  compact />        → ê 999      (no space)
-//   <Aed :value="999"  locale="ar-AE" /> → ê ٩٩٩     (Arabic digits)
+//   <Aed :value="1234" />                   → ê 1,234
+//   <Aed :value="1234.50" :decimals="2" />  → ê 1,234.50
+//   <Aed :value="0.4" :from-usd="true" />   → ê 1.47   (USD → AED at 3.6725)
+//   <Aed :value="999" compact />            → ê 999     (no space)
+//   <Aed :value="999" locale="ar-AE" />     → ê ٩٩٩     (Arabic digits)
 //
-// Style via the `aed-value` and `aed-symbol` classes (scoped slot-like).
+// import Aed, { USD_TO_AED } from "@ds/components/Aed.vue"
 import { computed } from "vue"
-
-// Design-system constant. Keep in sync with tokens.css --usd-to-aed.
-// Central bank peg has been constant since 1997 — fine to hardcode.
-export const USD_TO_AED = 3.6725
 
 const props = defineProps({
   value:    { type: Number,  required: true },
@@ -38,6 +38,14 @@ const formatted = computed(() => {
 })
 </script>
 
+<script>
+// UAE central-bank peg, constant since 1997. Keep in sync with tokens.css
+// --usd-to-aed (CSS vars aren't readable from JS at compute time).
+// Lives in a plain <script> block — top-level `export` is illegal inside
+// <script setup> (the Vue compiler rejects the whole component).
+export const USD_TO_AED = 3.6725
+</script>
+
 <template>
   <span class="aed" :class="{ compact }">
     <span class="aed-symbol" aria-label="AED">&#234;</span>
@@ -54,11 +62,11 @@ const formatted = computed(() => {
 }
 .aed.compact { gap: 0.15em; }
 .aed-symbol {
-  font-family: "UAESymbol", sans-serif;
+  /* Pulls the system's glyph font; falls back if used outside the DS. */
+  font-family: var(--font-currency, "UAESymbol", sans-serif);
   font-weight: 700;
   color: inherit;
-  /* Slightly smaller — the glyph tends to be optically heavier
-     than Latin digits, this evens it out. */
+  /* The glyph is optically heavier than Latin digits — trim it a touch. */
   font-size: 0.92em;
 }
 .aed-value {

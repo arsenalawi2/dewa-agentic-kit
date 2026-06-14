@@ -1,0 +1,2 @@
+# Build / maintenance scripts live here (e.g. data generators, one-off
+# migrations). Kept in git so the directory survives a fresh clone.

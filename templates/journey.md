@@ -67,7 +67,7 @@ This page is a narrative showcase. It's what you show stakeholders, present in m
 Use the EZ Design System. Sections flow vertically with alternating backgrounds.
 
 ### 1. Hero Section
-- Large project name in Space Grotesk (32-48px)
+- Large project name in the display font (32-48px)
 - One-line description of what the project does
 - Stats row: 3-5 key metrics (e.g., "113K+ items tracked", "8 AI domains", "3 data sources")
 - Optional: subtle background pattern or gradient

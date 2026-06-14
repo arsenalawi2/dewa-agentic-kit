@@ -28,6 +28,16 @@ die() { echo "dak-init: $*" >&2; exit 1; }
 
 NAME="${1:-}"
 [[ -n "$NAME" ]] || die "usage: dak-init <project-name> [target-dir]"
+
+# Reject names with characters that could break the string literals we
+# substitute into (Python/JSON/Vue source). Friendly display names only:
+# letters, digits, spaces, and . _ - & ( ) + — quotes, $, @, backticks,
+# slashes and backslashes are rejected so a name can never produce a
+# syntax error in app.py or invalid JSON in tech-stack.json.
+NAME_RE='^[A-Za-z0-9][A-Za-z0-9 ._&()+-]*$'
+[[ "$NAME" =~ $NAME_RE ]] \
+  || die "project name may contain only letters, digits, spaces, and . _ - & ( ) +  (got: '$NAME')"
+
 TARGET_BASE="${2:-$PWD}"
 
 # Slugify name for docker / npm / file paths.
@@ -73,13 +83,14 @@ cp -R "$TEMPLATE_DIR" "$TARGET"
 # We use perl for cross-platform in-place sed.
 substitute() {
   local key="$1" val="$2"
-  # Escape forward slashes and ampersands for perl.
-  local esc=$(printf '%s' "$val" | sed -e 's/[&\\/]/\\&/g')
-  find "$TARGET" -type f \
+  # Pass the value through the environment so Perl never *interpolates* it —
+  # $ENV{DAK_SUB_VAL} inserts the literal string, so $, @, backticks etc. in a
+  # project name can't run as Perl code (find propagates the env var to perl).
+  DAK_SUB_VAL="$val" find "$TARGET" -type f \
     ! -path '*/node_modules/*' \
     ! -path '*/.git/*' \
     ! -name '*.woff*' ! -name '*.ttf' ! -name '*.png' ! -name '*.jpg' \
-    -exec perl -i -pe "s/\\Q{{$key}}\\E/$esc/g" {} +
+    -exec perl -i -pe "s/\\Q{{$key}}\\E/\$ENV{DAK_SUB_VAL}/g" {} +
 }
 
 substitute PROJECT_NAME       "$NAME"
@@ -95,8 +106,17 @@ perl -i -pe "s/\"3XXX:/\"$FRONTEND_PORT:/g; s/\"8XXX:/\"$BACKEND_PORT:/g; s/\"54
 perl -i -pe "s/3XXX/$FRONTEND_PORT/g; s/8XXX/$BACKEND_PORT/g; s/54XX/$DB_PORT/g" \
   "$TARGET/README.md"
 
-# ─── Git init + first commit ─────────────────────────────────────
+# ─── Generate .env with a real admin password ────────────────────
+# .env is gitignored, so it is safe to write a secret here. Replacing
+# the placeholder DETAILED_PASSWORD=changeme with a random value means
+# admin-gated routes work on the first `docker compose up` instead of
+# returning a silent 503 ("admin auth not configured").
 cd "$TARGET"
+ADMIN_PW=$(openssl rand -hex 16 2>/dev/null || python3 -c 'import secrets; print(secrets.token_hex(16))')
+sed "s/^DETAILED_PASSWORD=.*/DETAILED_PASSWORD=$ADMIN_PW/" .env.example > .env
+chmod 600 .env   # the admin password lives here — keep it owner-only
+
+# ─── Git init + first commit ─────────────────────────────────────
 git init -q
 git add -A
 git -c user.name="DAK init" -c user.email="dak@local" commit -q -m "chore: dak init ($NAME)"
@@ -108,14 +128,18 @@ cat <<EOF
 
 Next:
   cd $SLUG
-  cp .env.example .env     # set DETAILED_PASSWORD
-  docker compose up --build
+  docker compose up --build       # .env is already generated for you
 
 Then visit:
   Frontend:  http://localhost:$FRONTEND_PORT
-  Backend:   http://localhost:$BACKEND_PORT  (health: /healthz)
+  Backend:   http://localhost:$BACKEND_PORT  (health: /healthz, ready: /readyz)
   Postgres:  localhost:$DB_PORT
 
+Admin password (in .env as DETAILED_PASSWORD — used by admin routes):
+  $ADMIN_PW
+
+Add a data model:  dak add-model Widget
+Health check:      dak doctor
 Read PROJECT.md and CONVENTIONS.md before the first feature.
 
 EOF

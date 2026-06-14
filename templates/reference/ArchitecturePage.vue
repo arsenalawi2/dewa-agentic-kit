@@ -512,7 +512,7 @@
             <span class="meta-stack-tag">Vite</span>
             <span class="meta-stack-tag">vis-network</span>
             <span class="meta-stack-tag">d3.js</span>
-            <span class="meta-stack-tag">Space Grotesk + DM Sans</span>
+            <span class="meta-stack-tag">Inter</span>
             <span class="meta-stack-tag">Tailscale Funnel</span>
             <span class="meta-stack-tag">Claude Code (Opus 4.6)</span>
           </div>
@@ -1443,7 +1443,7 @@ function buildGraph() {
         border: '#14532d',
         highlight: { background: '#14532d', border: '#86efac' },
       },
-      font: { color: '#faf9f7', face: 'Space Grotesk', size: 16, bold: '700' },
+      font: { color: '#faf9f7', face: 'Inter', size: 16, bold: '700' },
       borderWidth: 2,
       margin: 12,
       shapeProperties: { borderRadius: 6 },
@@ -1470,7 +1470,7 @@ function buildGraph() {
               border: color,
               highlight: { background: color, border: '#1a1917' },
             },
-            font: { color: '#23221f', face: 'DM Sans', size: 12 },
+            font: { color: '#23221f', face: 'Inter', size: 12 },
             _kind: 'tech',
             _tech: tech,
             _category: cat,
@@ -1571,7 +1571,7 @@ function applyGraphHighlight(centerId) {
         color: isHighlighted
           ? { background: '#1a1917', border: '#14532d' }
           : { background: '#e5e4e1', border: '#d1cfc9' },
-        font: { color: isHighlighted ? '#faf9f7' : '#a8a69f', face: 'Space Grotesk', size: 16, bold: '700' },
+        font: { color: isHighlighted ? '#faf9f7' : '#a8a69f', face: 'Inter', size: 16, bold: '700' },
       }
     } else {
       const baseBg = n._baseColor.background
@@ -1580,7 +1580,7 @@ function applyGraphHighlight(centerId) {
         color: isHighlighted
           ? { background: baseBg, border: baseBg }
           : { background: '#e5e4e1', border: '#d1cfc9' },
-        font: { color: isHighlighted ? '#23221f' : '#a8a69f', face: 'DM Sans', size: n.font.size },
+        font: { color: isHighlighted ? '#23221f' : '#a8a69f', face: 'Inter', size: n.font.size },
       }
     }
   }))
@@ -1602,14 +1602,14 @@ function resetGraphHighlight() {
       return {
         id: n.id,
         color: { background: '#1a1917', border: '#14532d' },
-        font: { color: '#faf9f7', face: 'Space Grotesk', size: 16, bold: '700' },
+        font: { color: '#faf9f7', face: 'Inter', size: 16, bold: '700' },
       }
     } else {
       const baseBg = n._baseColor.background
       return {
         id: n.id,
         color: { background: baseBg, border: baseBg },
-        font: { color: '#23221f', face: 'DM Sans', size: n.font.size },
+        font: { color: '#23221f', face: 'Inter', size: n.font.size },
       }
     }
   }))
@@ -1787,7 +1787,7 @@ function buildFlow() {
         .attr('y', cy)
         .attr('text-anchor', 'end')
         .attr('dominant-baseline', 'middle')
-        .style('font-family', "'Space Grotesk', sans-serif")
+        .style('font-family', "'Inter', sans-serif")
         .style('font-size', '13px')
         .style('font-weight', '700')
         .style('fill', '#23221f')
@@ -1800,7 +1800,7 @@ function buildFlow() {
       .attr('y', cy)
       .attr('text-anchor', 'end')
       .attr('dominant-baseline', 'middle')
-      .style('font-family', "'JetBrains Mono', monospace")
+      .style('font-family', "ui-monospace, Menlo, monospace")
       .style('font-size', '10px')
       .style('fill', '#85837c')
       .text(`${pp.count} tech`)
@@ -1839,7 +1839,7 @@ function buildFlow() {
         .attr('x', TECH_R + 8)
         .attr('y', cy)
         .attr('dominant-baseline', 'middle')
-        .style('font-family', "'DM Sans', sans-serif")
+        .style('font-family', "'Inter', sans-serif")
         .style('font-size', '12px')
         .style('font-weight', '500')
         .style('fill', '#23221f')
@@ -1850,7 +1850,7 @@ function buildFlow() {
       .attr('x', TECH_R + 8)
       .attr('y', cy + 2)
       .attr('dominant-baseline', 'middle')
-      .style('font-family', "'JetBrains Mono', monospace")
+      .style('font-family', "ui-monospace, Menlo, monospace")
       .style('font-size', '9px')
       .style('fill', '#85837c')
       .text(`× ${t.count}`)

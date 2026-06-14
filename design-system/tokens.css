@@ -1,240 +1,403 @@
-/* ═══════════════════════════════════════════════════════════════
-   Design Tokens
-   Extracted from AI Radar — "Analytical precision"
-   Warm-tinted neutrals, Space Grotesk + DM Sans, dark green accent
-   ═══════════════════════════════════════════════════════════════ */
+/* ============================================================================
+   Warm-Neutral Design System — TOKENS
+   Distilled from the rammas-72k frontend, generalized for any product.
 
-/* UAESymbol font — dirham glyph (ê). Ship fonts inline so no project
-   re-downloads them. Use via `font-family: "UAESymbol"` or the
-   <Aed> component from ~/design-system/components/Aed.vue. */
-@font-face {
-  font-family: "UAESymbol";
-  src: url("./fonts/dirham-symbol.woff2") format("woff2"),
-       url("./fonts/dirham-symbol.woff")  format("woff"),
-       url("./fonts/dirham-symbol.ttf")   format("truetype");
-  font-display: swap;
-  font-weight: 700;
-}
+   This file defines ONLY design tokens (CSS custom properties). It has no
+   product-specific anything — drop it into a shopping site, a dashboard, a
+   blog, whatever. Pair with base.css (reset + typography) and components.css
+   (the class library).
 
-/* Usage helper: wrap any element with class="currency-aed" and put
-   the dirham glyph (U+00EA → ê) at the start. */
-.currency-aed {
-  font-family: "UAESymbol", sans-serif;
-  font-size: inherit;
-  color: inherit;
-  font-weight: 700;
-}
+   Layer model:
+     1. Primitive ramps   — raw color steps, never reference these in components
+     2. Semantic aliases  — what components actually use (--color-primary, …)
+     3. Scales            — space / radius / type / shadow / motion / z / layout
+
+   Theme the whole system by overriding layer 2 (see the [data-theme="dark"]
+   block at the bottom). Components never hard-code a hex value.
+   ========================================================================== */
 
 :root {
-  /* ── Currency (AED is the DAK default) ──────────────────────── */
-  /* Conversion rate from USD (update here; ripples everywhere).
-     4.5h markets are thin — 3.6725 is the central bank peg. */
-  --usd-to-aed: 3.6725;
-  --currency-symbol: "\u00EA"; /* ê — UAESymbol font maps to the dirham */
-  --currency-code: "AED";
+  /* ──────────────────────────────────────────────────────────────────────
+     1. PRIMITIVE COLOR RAMPS  (do not use directly in components)
+     Warm neutrals + one green primary + one violet secondary + 3 status hues.
+     Every step here is a real value pulled from the source product.
+     ────────────────────────────────────────────────────────────────────── */
 
-  /* ── Typography ─────────────────────────────────────────────── */
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
-  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  /* Warm neutral — the paper-and-ink core. Never pure #fff / #000. */
+  --neutral-0:   #ffffff;  /* card / raised surface                       */
+  --neutral-25:  #faf9f7;  /* app background (warm paper)                 */
+  --neutral-50:  #f6f5f3;  /* sunken surface / sidebar / subtle fill      */
+  --neutral-100: #f0efeb;  /* hover fill on tinted surfaces               */
+  --neutral-150: #eeedeb;  /* hover fill / quiet bubble                   */
+  --neutral-200: #e2e0dc;  /* hairline border / active fill               */
+  --neutral-300: #d1cfc9;  /* strong border / scrollbar thumb             */
+  --neutral-400: #a8a69f;  /* subtle text / disabled / icons              */
+  --neutral-600: #65635d;  /* muted text                                  */
+  --neutral-900: #23221f;  /* primary text (warm near-black)              */
 
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 14px;
-  --text-md: 15px;
-  --text-lg: 16px;
-  --text-xl: 18px;
-  --text-2xl: 20px;
-  --text-3xl: 24px;
-  --text-4xl: 32px;
-  --text-5xl: 40px;
-  --text-6xl: 48px;
+  /* Green — primary accent. */
+  --green-50:  #dcfce7;
+  --green-100: #c8eed8;
+  --green-300: #86d3a4;  /* disabled / "empty" primary button            */
+  --green-500: #2d9d57;  /* online / positive signal dot                 */
+  --green-700: #14532d;
+  --green-800: #0f4024;  /* THE accent                                   */
+  --green-900: #0a2e1a;  /* pressed / hover-dark                          */
 
-  --weight-normal: 400;
-  --weight-medium: 500;
-  --weight-semibold: 600;
-  --weight-bold: 700;
+  /* Violet — secondary accent (a parallel category / "advisory" track). */
+  --violet-50:  #f5f3ff;
+  --violet-200: #ddd6fe;
+  --violet-400: #a78bfa;  /* disabled secondary button                    */
+  --violet-500: #8b5cf6;  /* secondary signal dot                         */
+  --violet-700: #6d28d9;  /* secondary text/icon                          */
+  --violet-800: #5b21b6;  /* secondary pressed                            */
 
-  --leading-tight: 1.2;
-  --leading-snug: 1.35;
-  --leading-normal: 1.5;
-  --leading-relaxed: 1.65;
+  /* Amber — warning / "needs attention" / superseded / privileged. */
+  --amber-100: #fef3c7;
+  --amber-200: #fde68a;
+  --amber-500: #d4940a;
+  --amber-600: #b45309;
+  --amber-800: #92400e;
 
-  --tracking-tight: -0.02em;
-  --tracking-normal: 0;
-  --tracking-wide: 0.02em;
+  /* Red — danger / destructive / error. */
+  --red-50:  #fef2f2;
+  --red-200: #fecaca;
+  --red-500: #d64545;  /* THE error                                      */
+  --red-700: #b03a3a;  /* destructive pressed                            */
 
-  /* ── Colors: warm-tinted neutrals ──────────────────────────── */
-  --color-black: #1a1917;
-  --color-white: #faf9f7;
+  /* Scrim / overlay tints (translucent, theme-independent). */
+  --scrim-soft:  rgba(0, 0, 0, 0.35);   /* side-panel backdrop            */
+  --scrim:       rgba(0, 0, 0, 0.40);   /* nav drawer backdrop            */
+  --scrim-media: rgba(20, 20, 18, 0.92);/* full-screen media viewer       */
 
-  --gray-50:  #f6f5f3;
-  --gray-100: #eeedeb;
-  --gray-200: #e2e0dc;
-  --gray-300: #d1cfc9;
-  --gray-400: #a8a69f;
-  --gray-500: #85837c;
-  --gray-600: #65635d;
-  --gray-700: #4d4b46;
-  --gray-800: #353430;
-  --gray-900: #23221f;
+  /* ──────────────────────────────────────────────────────────────────────
+     2. SEMANTIC ALIASES  (this is what components reference)
+     Re-point these to re-theme. Names are product-agnostic.
+     ────────────────────────────────────────────────────────────────────── */
 
-  /* ── Accent: dark green ────────────────────────────────────── */
-  --accent-50:  #f0fdf4;
-  --accent-100: #dcfce7;
-  --accent-200: #86efac;
-  --accent-300: #4ade80;
-  --accent-400: #22c55e;
-  --accent-500: #14532d;
-  --accent-600: #0f4024;
-  --accent-700: #0a2e1a;
+  /* Surfaces & text */
+  --color-bg:            var(--neutral-25);
+  --color-surface:       var(--neutral-0);
+  --color-surface-sunken:var(--neutral-50);
+  --color-surface-hover: var(--neutral-150);
+  --color-text:          var(--neutral-900);
+  --color-text-muted:    var(--neutral-600);
+  --color-text-subtle:   var(--neutral-400);
+  --color-border:        var(--neutral-200);
+  --color-border-strong: var(--neutral-300);
 
-  /* ── Semantic: status ──────────────────────────────────────── */
-  --color-success: #2d9d78;
-  --color-warning: #d4940a;
-  --color-error:   #d64545;
-  --color-info:    #3B82F6;
+  /* Primary (green) */
+  --color-primary:          var(--green-800);
+  --color-primary-hover:     var(--green-900);
+  --color-primary-disabled:  var(--green-300);
+  --color-primary-contrast:  #ffffff;
+  --color-primary-soft:      var(--green-50);   /* tinted fill behind primary text */
+  --color-primary-soft-border: var(--green-100);
 
-  /* ── Semantic: text hierarchy ──────────────────────────────── */
-  --text-primary:   var(--gray-900);
-  --text-secondary: var(--gray-600);
-  --text-tertiary:  var(--gray-500);
-  --text-muted:     var(--gray-400);
-  --text-accent:    var(--accent-600);
-  --text-inverse:   var(--color-white);
-  --text-success:   var(--color-success);
-  --text-warning:   var(--color-warning);
-  --text-error:     var(--color-error);
-  --text-info:      var(--color-info);
+  /* Secondary (violet) */
+  --color-secondary:         var(--violet-700);
+  --color-secondary-hover:    var(--violet-800);
+  --color-secondary-disabled: var(--violet-400);
+  --color-secondary-contrast: #ffffff;
+  --color-secondary-soft:     var(--violet-50);
+  --color-secondary-soft-border: var(--violet-200);
+  --color-secondary-dot:      var(--violet-500);
 
-  /* ── Semantic: backgrounds ─────────────────────────────────── */
-  --bg-primary:   var(--color-white);
-  --bg-secondary: var(--gray-50);
-  --bg-tertiary:  var(--gray-100);
-  --bg-hover:     var(--gray-100);
-  --bg-active:    var(--gray-200);
-  --bg-accent:    var(--accent-50);
-  --bg-success:   #f0fdf4;
-  --bg-warning:   #fffbeb;
-  --bg-error:     #fef2f2;
-  --bg-info:      #eff6ff;
+  /* Status: success / warning / danger / info */
+  --color-success:        var(--green-800);
+  --color-success-soft:   var(--green-50);
+  --color-success-border: var(--green-100);
 
-  /* ── Semantic: borders ─────────────────────────────────────── */
-  --border-light:   var(--gray-200);
-  --border-default: var(--gray-300);
-  --border-hover:   var(--gray-400);
-  --border-focus:   var(--accent-500);
+  --color-warning:        var(--amber-800);
+  --color-warning-strong: var(--amber-600);
+  --color-warning-soft:   var(--amber-100);
+  --color-warning-border: var(--amber-200);
 
-  /* ── Spacing (4px base) ────────────────────────────────────── */
+  --color-danger:         var(--red-500);
+  --color-danger-hover:   var(--red-700);
+  --color-danger-soft:    var(--red-50);
+  --color-danger-border:  var(--red-200);
+  --color-danger-contrast: #ffffff;   /* text on a danger fill */
+
+  --color-info:           var(--violet-700);
+  --color-info-soft:      var(--violet-50);
+  --color-info-border:    var(--violet-200);
+
+  /* Focus ring color (used by --shadow-focus) */
+  --color-focus-ring:     rgba(15, 64, 36, 0.35);  /* primary @ 35%        */
+
+  /* Data viz — the sanctioned categorical sequence for ANY chart library
+     (Chart.js, echarts, d3, recharts, plain SVG). Use in order; never
+     hand-pick hexes in app code. Grid/label tokens theme axes + canvas
+     text so charts follow dark mode like everything else. */
+  --chart-1:     var(--green-800);   /* primary series                     */
+  --chart-2:     var(--violet-700);  /* secondary series                   */
+  --chart-3:     #b45309;           /* amber 700 — warm counterpoint       */
+  --chart-4:     var(--green-500);   /* positive signal                    */
+  --chart-5:     #9f1239;           /* rose 800 — alerts / outliers        */
+  --chart-6:     var(--neutral-400); /* baseline / "other"                 */
+  --chart-grid:  var(--color-border);
+  --chart-label: var(--color-text-muted);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     3a. TYPOGRAPHY
+     One UI family (Inter) carries display + body. A real monospace stack is
+     reserved for data (IDs, code, figures). "Micro-labels" are NOT a font —
+     they're uppercase + letter-spacing applied to the UI family (see base.css
+     .u-label). font-feature-settings turns on Inter's nicer glyphs.
+     ────────────────────────────────────────────────────────────────────── */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+               'Helvetica Neue', Arial, sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco,
+               'Cascadia Code', 'Roboto Mono', monospace;
+  /* Glyph-only family for the UAE Dirham symbol (ê / U+00EA). Not a text
+     family — pair with .dirham-symbol / .currency-aed (see base.css). */
+  --font-currency: 'UAESymbol', var(--font-sans);
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold:600;
+  --weight-bold:    700;
+  --weight-black:   800;
+
+  /* Type scale (rem; root = 16px). Rationalized from the source's many
+     half-pixel sizes into a clean ramp. */
+  --text-2xs: 0.625rem;  /* 10px — micro labels, mono tags                */
+  --text-xs:  0.6875rem; /* 11px — labels, captions, hints                */
+  --text-sm:  0.75rem;   /* 12px — secondary / dense UI                   */
+  --text-base:0.875rem;  /* 14px — body copy, prose, list rows            */
+  --text-md:  0.9375rem; /* 15px — emphasized body                        */
+  --text-lg:  1rem;      /* 16px — inputs, comfortable body               */
+  --text-xl:  1.0625rem; /* 17px — brand, section heading (h3/h2-prose)   */
+  --text-2xl: 1.25rem;   /* 20px — heading                                */
+  --text-3xl: 1.5rem;    /* 24px — page subtitle / big metric             */
+  --text-4xl: 1.75rem;   /* 28px — hero / page title                      */
+
+  --leading-tight:  1.25;
+  --leading-snug:   1.4;
+  --leading-normal: 1.55;
+  --leading-relaxed:1.6;
+
+  --tracking-tighter: -0.02em; /* large display headings                  */
+  --tracking-tight:   -0.01em; /* headings                                */
+  --tracking-normal:  0;
+  --tracking-label:   0.05em;  /* uppercase micro-labels                  */
+  --tracking-caps:    0.1em;   /* loudest all-caps eyebrows               */
+
+  /* ──────────────────────────────────────────────────────────────────────
+     3a-bis. CURRENCY  (AED — the default currency)
+     The UAESymbol webfont (loaded in base.css) maps U+00EA → the official
+     Dirham glyph. Render it with the .dirham-symbol / .currency-aed class.
+     --usd-to-aed is the central-bank peg, constant since 1997.
+     ────────────────────────────────────────────────────────────────────── */
+  --currency-symbol: "\00EA";  /* ê — UAESymbol maps this to the Dirham    */
+  --currency-code:   "AED";
+  --usd-to-aed:      3.6725;
+
+  /* ──────────────────────────────────────────────────────────────────────
+     3b. SPACING  (4px base grid)
+     ────────────────────────────────────────────────────────────────────── */
   --space-0:  0;
   --space-px: 1px;
-  --space-0-5: 2px;
-  --space-1:  4px;
-  --space-1-5: 6px;
-  --space-2:  8px;
-  --space-3:  12px;
-  --space-4:  16px;
-  --space-5:  20px;
-  --space-6:  24px;
-  --space-8:  32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
-  --space-20: 80px;
-  --space-24: 96px;
+  --space-1:  0.25rem; /* 4  */
+  --space-2:  0.5rem;  /* 8  */
+  --space-3:  0.75rem; /* 12 */
+  --space-4:  1rem;    /* 16 */
+  --space-5:  1.25rem; /* 20 */
+  --space-6:  1.5rem;  /* 24 */
+  --space-7:  1.75rem; /* 28 */
+  --space-8:  2rem;    /* 32 */
+  --space-10: 2.5rem;  /* 40 */
+  --space-12: 3rem;    /* 48 */
+  --space-15: 3.75rem; /* 60 */
 
-  /* ── Border Radius ─────────────────────────────────────────── */
-  --radius-sm:   4px;
-  --radius-md:   6px;
-  --radius-lg:   10px;
-  --radius-xl:   16px;
-  --radius-full: 9999px;
+  /* ──────────────────────────────────────────────────────────────────────
+     3c. RADII
+     ────────────────────────────────────────────────────────────────────── */
+  --radius-xs:  3px;   /* tags, code, tiny index badges                   */
+  --radius-sm:  6px;   /* chips, cards, small controls                    */
+  --radius-md:  8px;   /* buttons, inputs, alerts, default                */
+  --radius-lg:  12px;  /* large input surfaces, raised cards              */
+  --radius-xl:  14px;  /* hero cards, drop zones                          */
+  --radius-pill:999px; /* pills, toggles, segmented controls, FABs        */
+  --radius: var(--radius-md);
 
-  /* ── Shadows ───────────────────────────────────────────────── */
-  --shadow-xs:  0 1px 2px rgba(26, 25, 23, 0.03);
-  --shadow-sm:  0 1px 2px rgba(26, 25, 23, 0.05);
-  --shadow-md:  0 2px 8px rgba(26, 25, 23, 0.08);
-  --shadow-lg:  0 8px 24px rgba(26, 25, 23, 0.1);
-  --shadow-xl:  0 16px 48px rgba(26, 25, 23, 0.12);
+  /* ──────────────────────────────────────────────────────────────────────
+     3d. ELEVATION  (borders do most of the work; shadows are a whisper)
+     ────────────────────────────────────────────────────────────────────── */
+  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.03);          /* resting input   */
+  --shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.06);          /* small lift      */
+  --shadow-md:  0 2px 10px rgba(0, 0, 0, 0.15);         /* floating FAB    */
+  --shadow-lg:  0 6px 24px rgba(15, 64, 36, 0.25);      /* accent-tinted pop*/
+  --shadow-panel-right: -8px 0 24px rgba(0, 0, 0, 0.15);/* right sheet     */
+  --shadow-panel-left:   4px 0 18px rgba(0, 0, 0, 0.18);/* left drawer     */
+  --shadow-overlay: 0 10px 40px rgba(0, 0, 0, 0.40);    /* media viewer    */
+  --shadow-focus: 0 0 0 3px var(--color-focus-ring);    /* keyboard focus  */
 
-  /* ── Transitions ───────────────────────────────────────────── */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* ──────────────────────────────────────────────────────────────────────
+     3e. MOTION  (quick, ease-out, never bouncy)
+     ────────────────────────────────────────────────────────────────────── */
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: ease-in-out;
+  --dur-fast:  0.1s;
+  --dur-base:  0.12s;   /* the default for hovers / state changes         */
+  --dur-slow:  0.15s;   /* fades                                          */
+  --dur-panel: 0.18s;   /* drawers / sheets sliding in                    */
+  --transition: var(--dur-base) var(--ease-out);
 
-  --transition-fast: 150ms var(--ease-out);
-  --transition-base: 200ms var(--ease-out);
-  --transition-slow: 300ms var(--ease-out);
+  /* ──────────────────────────────────────────────────────────────────────
+     3f. Z-INDEX
+     ────────────────────────────────────────────────────────────────────── */
+  --z-base:    0;
+  --z-sticky:  50;   /* sticky toolbars, FABs                            */
+  --z-backdrop:90;   /* nav-drawer scrim                                  */
+  --z-nav:     100;  /* slide-in nav over scrim                           */
+  --z-panel:   200;  /* side sheets / drilldown                           */
+  --z-dropdown:300;  /* menus / popovers / search results — above sheets  */
+  --z-modal:   1000; /* full-screen media viewer / modal                  */
+  --z-toast:   1100; /* transient notifications — above a modal: a toast  */
+                     /* must survive an open modal/viewer                 */
+  --z-tooltip: 1200; /* tooltips beat everything, even toasts             */
 
-  /* ── Z-index layers ────────────────────────────────────────── */
-  --z-base:     1;
-  --z-dropdown: 100;
-  --z-sticky:   200;
-  --z-panel:    250;
-  --z-modal:    300;
-  --z-toast:    400;
-  --z-tooltip:  500;
+  /* ──────────────────────────────────────────────────────────────────────
+     3g. LAYOUT
+     ────────────────────────────────────────────────────────────────────── */
+  --layout-sidebar:   240px;  /* app rail, expanded                       */
+  --layout-rail:      64px;   /* app rail, collapsed (icons only)         */
+  --layout-reading:   760px;  /* single comfortable reading column        */
+  --layout-container: 1100px; /* dashboard / wide content                 */
+  --layout-form:      380px;  /* centered auth/form card                  */
+  --layout-sheet:     560px;  /* right-hand detail sheet                  */
+  --bp-sm: 640px;
+  --bp-md: 768px;
 
-  /* ── Layout ────────────────────────────────────────────────── */
-  --navbar-height: 48px;
-  --sidebar-width: 240px;
-  --panel-width:   380px;
-  --content-max-width: 1200px;
+  /* ──────────────────────────────────────────────────────────────────────
+     COMPAT: original rammas-72k variable names, aliased onto the semantic
+     layer. Lets the existing app adopt this file as a drop-in superset, and
+     lets you copy any rammas component without renaming. Optional — delete
+     this block for a fresh project.
+     ────────────────────────────────────────────────────────────────────── */
+  --bg:              var(--color-bg);
+  --bg-card:         var(--color-surface);
+  --sidebar:         var(--color-surface-sunken);
+  --sidebar-border:  var(--color-border);
+  --sidebar-hover:   var(--neutral-150);
+  --text-primary:    var(--color-text);
+  --text-secondary:  var(--color-text-muted);
+  --text-tertiary:   var(--color-text-subtle);
+  --border:          var(--color-border);
+  --border-strong:   var(--color-border-strong);
+  --accent:          var(--color-primary);
+  --accent-hover:    var(--color-primary-hover);
+  --accent-soft:     var(--color-primary-soft);
+  --error:           var(--color-danger);
+  --font-tabular:    var(--font-mono);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     COMPAT: EZ Design System names (DAK ≤ 3.0), aliased the same way.
+     Keeps the kit's auto-page templates (/vibe-code, /journey,
+     /architecture, /pm-log) and any pre-3.1 markup rendering correctly.
+     var() indirection means they follow the dark theme automatically.
+     ────────────────────────────────────────────────────────────────────── */
+  --bg-primary:      var(--color-bg);
+  --bg-secondary:    var(--color-surface);
+  --bg-tertiary:     var(--color-surface-sunken);
+  --bg-hover:        var(--color-surface-hover);
+  --bg-active:       var(--color-surface-hover);
+  --bg-accent:       var(--color-primary-soft);
+  --border-light:    var(--color-border);
+  --border-default:  var(--color-border-strong);
+  --text-muted:      var(--color-text-muted);
+  --text-accent:     var(--color-primary);
+  --accent-50:       var(--color-primary-soft);
+  --accent-100:      var(--color-primary-soft);
+  --accent-200:      var(--color-primary-soft-border);
+  --accent-500:      var(--color-primary);
+  --accent-600:      var(--color-primary);
+  --color-error:     var(--color-danger);
+  --radius-full:     var(--radius-pill);
+  --transition-fast: var(--dur-fast) var(--ease-out);
 }
 
-/* ── Dark Mode ─────────────────────────────────────────────── */
-html.dark,
-html.dark body {
-  --text-primary:   #e5e4e1;
-  --text-secondary: #a09e98;
-  --text-tertiary:  #7a7873;
-  --text-muted:     #5a5854;
-  --text-accent:    var(--accent-200);
-  --text-inverse:   var(--color-black);
+/* ============================================================================
+   DARK THEME
+   The source product ships light-only; this is the system's first-class dark
+   theme. It re-points ONLY the semantic layer + ramps that need lifting for
+   contrast on a dark canvas. Warm, never pure black.
 
-  --bg-primary:   #1a1917;
-  --bg-secondary: #222120;
-  --bg-tertiary:  #2a2928;
-  --bg-hover:     #302f2d;
-  --bg-active:    #3a3937;
-  --bg-accent:    rgba(20, 83, 45, 0.15);
-  --bg-success:   rgba(45, 157, 120, 0.1);
-  --bg-warning:   rgba(212, 148, 10, 0.1);
-  --bg-error:     rgba(214, 69, 69, 0.1);
-  --bg-info:      rgba(59, 130, 246, 0.1);
+   Activate with  <html data-theme="dark">  (or on any ancestor).
+   `.dark` is also supported for parity with utility-class conventions.
+   ========================================================================== */
+:root[data-theme="dark"],
+.dark {
+  /* Lift the neutral ramp to a warm dark scale */
+  --neutral-0:   #26241f;  /* raised surface                              */
+  --neutral-25:  #1a1916;  /* app background                              */
+  --neutral-50:  #201e1a;  /* sunken / sidebar                            */
+  --neutral-100: #2b2925;
+  --neutral-150: #2b2925;
+  --neutral-200: #34322e;  /* border                                      */
+  --neutral-300: #45423d;  /* strong border                               */
+  --neutral-400: #75726b;  /* subtle text                                 */
+  --neutral-600: #a8a69f;  /* muted text                                  */
+  --neutral-900: #ece9e3;  /* primary text (warm off-white)               */
 
-  --border-light:   #333230;
-  --border-default: #44433f;
-  --border-hover:   #5a5955;
+  /* Brand hues brighten so they read on the dark canvas */
+  --color-primary:          #4fa977;
+  --color-primary-hover:     #5cba86;
+  --color-primary-disabled:  #2e5b41;
+  --color-primary-soft:      #18301f;
+  --color-primary-soft-border:#234a31;
 
-  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.15);
-  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-md:  0 2px 8px rgba(0, 0, 0, 0.25);
-  --shadow-lg:  0 8px 24px rgba(0, 0, 0, 0.3);
-  --shadow-xl:  0 16px 48px rgba(0, 0, 0, 0.35);
+  --color-secondary:         #b9a3f0;
+  --color-secondary-hover:    #cbb9f6;
+  --color-secondary-soft:     #241f33;
+  --color-secondary-soft-border:#3d2f66;
+  --color-secondary-dot:      #a78bfa;
+
+  --color-success:        #4fa977;
+  --color-success-soft:   #18301f;
+  --color-success-border: #234a31;
+
+  --color-warning:        #e0b657;
+  --color-warning-strong: #e0b657;
+  --color-warning-soft:   #322713;
+  --color-warning-border: #5c4a1e;
+
+  --color-danger:         #e26d6d;
+  --color-danger-hover:   #ef8181;
+  --color-danger-soft:    #321b1b;
+  --color-danger-border:  #5c2e2e;
+  --color-danger-contrast: #ffffff;
+
+  --color-info:           #b9a3f0;
+  --color-info-soft:      #241f33;
+  --color-info-border:    #3d2f66;
+
+  --color-focus-ring:     rgba(79, 169, 119, 0.45);
+  --color-primary-contrast: #0a2e1a;   /* dark text on the brighter green */
+
+  /* Data viz — brightened for dark surfaces */
+  --chart-1:     #4fa977;
+  --chart-2:     #b9a3f0;
+  --chart-3:     #e0b657;
+  --chart-4:     #5cba86;
+  --chart-5:     #e26d6d;
+  --chart-6:     #75726b;
+  --chart-grid:  var(--color-border);
+  --chart-label: var(--color-text-muted);
+
+  /* Shadows go deeper on dark */
+  --shadow-md: 0 2px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 6px 28px rgba(0, 0, 0, 0.55);
 }
 
-/* ── Responsive ──────────────────────────────────────────────── */
-@media (max-width: 1200px) {
-  :root {
-    --sidebar-width: 200px;
-    --panel-width: 340px;
-  }
-}
-
-@media (max-width: 960px) {
-  :root {
-    --sidebar-width: 0px;
-    --panel-width: 100%;
-  }
-}
-
-@media (max-width: 640px) {
-  :root {
-    --text-base: 13px;
-    --text-3xl: 20px;
-    --text-4xl: 26px;
-    --text-5xl: 32px;
-    --text-6xl: 40px;
-  }
-}
+/* NO automatic prefers-color-scheme block — by design (DAK 3.1.0).
+   The app decides its theme explicitly via html[data-theme="dark"] or
+   html.dark; the old auto-block silently forced dark on OS-dark machines
+   even when the app's own toggle said light, and shipped an incomplete
+   variable set (missing success/shadow overrides → illegible greens).
+   To opt in to OS-following, the app can do it in ~3 lines of JS:
+     matchMedia("(prefers-color-scheme: dark)").matches &&
+       document.documentElement.setAttribute("data-theme", "dark") */

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Warm-Neutral Design System (rammas-72k) — Showcase</title>
+
+  <!-- Inter — the system's one UI family (per DESIGN_SYSTEM.md) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- The actual rammas-72k design system — three links, in order -->
+  <link rel="stylesheet" href="tokens.css" />
+  <link rel="stylesheet" href="base.css" />
+  <link rel="stylesheet" href="components.css" />
+
+  <style>
+    /* The UAE Dirham glyph (.dirham-symbol) and its UAESymbol @font-face now
+       ship inside this design system (base.css + fonts/) — nothing to define here. */
+
+    /* showcase-only layout glue (not part of the system) */
+    /* Inline nav-icon styling — in a Vue app this is <Icon> (Icon.vue). */
+    .rail-svg { width: 20px; height: 20px; display: block; fill: none;
+      stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .content { flex: 1 1 auto; min-height: 0; overflow-y: auto;
+               padding: var(--space-8) var(--space-6); }
+    .content-inner { max-width: var(--layout-container); margin-inline: auto; }
+    .section { margin-bottom: var(--space-12); }
+    .section > h2 { font-size: var(--text-3xl); letter-spacing: var(--tracking-tight);
+                    margin: var(--space-1) 0; }
+    .section > .sub { color: var(--color-text-muted); margin: 0 0 var(--space-5);
+                      font-size: var(--text-md); }
+    .grid { display: grid; gap: var(--space-4); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-2 { grid-template-columns: 2fr 1fr; }
+    .swatch { height: 52px; border-radius: var(--radius-sm);
+              border: 1px solid var(--color-border); }
+    .swatch-label { font-family: var(--font-mono); font-size: var(--text-xs);
+                    color: var(--color-text-muted); margin-top: var(--space-1); }
+    @media (max-width: 900px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell app-shell--rail">
+    <!-- ─── Sidebar: hover-expand rail (64px at rest, 240px on hover) ───
+         Icons are inline SVG (the system's Icon.vue set) — never glyph chars.
+         All share .rail-svg below: 20px, currentColor, stroke 1.5. -->
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="brand"><span class="rail-icon"><svg class="rail-svg" viewBox="0 0 24 24"><path d="M12 3 13.8 9 20 10.8 14 12.6 12 21 10 12.6 4 10.8 10.2 9Z"/></svg></span><span class="rail-label">Warm&nbsp;Neutral <span class="ver">rammas-72k</span></span></div>
+      </div>
+      <div class="sidebar-scroll">
+        <p class="u-label rail-label" style="padding:0 var(--space-2);margin-bottom:var(--space-2)">Overview</p>
+        <ul class="list">
+          <li class="list-row is-active"><span class="rail-icon"><svg class="rail-svg" viewBox="0 0 24 24"><path d="M4 4h6v6H4Z"/><path d="M14 4h6v6h-6Z"/><path d="M14 14h6v6h-6Z"/><path d="M4 14h6v6H4Z"/></svg></span><span class="rail-label">Dashboard</span></li>
+          <li class="list-row"><span class="rail-icon"><svg class="rail-svg" viewBox="0 0 24 24"><path d="M12 2.5 2.5 7 12 11.5 21.5 7 12 2.5Z"/><path d="M2.5 12 12 16.5 21.5 12"/><path d="M2.5 16.8 12 21.3 21.5 16.8"/></svg></span><span class="rail-label">Components</span></li>
+          <li class="list-row"><span class="rail-icon"><svg class="rail-svg" viewBox="0 0 24 24"><path d="M12 6.5c4.4 0 8-1.1 8-2.5S16.4 1.5 12 1.5 4 2.6 4 4s3.6 2.5 8 2.5Z"/><path d="M4 4v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5V4"/><path d="M4 10v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/></svg></span><span class="rail-label">Data</span></li>
+          <li class="list-row"><span class="rail-icon"><svg class="rail-svg" viewBox="0 0 24 24"><path d="M4 4v16h16"/><path d="M8 16v-4"/><path d="M12.5 16V8"/><path d="M17 16v-7"/></svg></span><span class="rail-label">Charts</span></li>
+        </ul>
+        <p class="u-label rail-label" style="padding:var(--space-4) var(--space-2) var(--space-2)">Filters</p>
+        <ul class="list">
+          <li class="list-row spread"><span class="rail-icon"><svg class="rail-svg" viewBox="0 0 24 24"><path d="M4 13 6.5 5.5A2 2 0 0 1 8.4 4h7.2a2 2 0 0 1 1.9 1.5L20 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M4 13h4l1.5 2.5h5L16 13h4"/></svg></span><span class="rail-label" style="flex:1">All projects</span></li>
+          <li class="list-row spread"><span class="rail-icon"><svg class="rail-svg" viewBox="0 0 24 24"><path d="M5 12.5 10 17.5 19.5 7"/></svg></span><span class="rail-label" style="flex:1">Active</span><span class="count rail-label">7</span></li>
+          <li class="list-row spread"><span class="rail-icon"><svg class="rail-svg" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg></span><span class="rail-label" style="flex:1">Archived</span></li>
+        </ul>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn btn-ghost btn-sm btn-block" id="themeBtn" onclick="toggleTheme()"><span class="rail-icon"><svg class="rail-svg" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg></span><span class="rail-label">Toggle theme</span></button>
+      </div>
+    </aside>
+
+    <!-- ─── Main ─── -->
+    <div class="main">
+      <header class="topbar">
+        <div style="flex:1">
+          <strong style="font-size:var(--text-md)">Design System Showcase</strong>
+          <div class="u-muted" style="font-size:var(--text-sm)">Warm neutrals · Inter · green primary + violet secondary · hover the left rail to expand it</div>
+        </div>
+        <span class="badge badge-pill badge-primary"><span class="dot dot-primary"></span>Live</span>
+        <button class="btn btn-subtle btn-sm">Export</button>
+        <button class="btn btn-primary btn-sm">＋ New</button>
+      </header>
+
+      <div class="content">
+        <div class="content-inner">
+
+          <!-- KPI stat cards -->
+          <section class="section">
+            <p class="u-label">Overview</p>
+            <h2>This quarter</h2>
+            <p class="sub">Stat tiles with semantic status tints. Figures in tabular mono; currency via the UAE Dirham glyph.</p>
+            <div class="grid grid-4">
+              <div class="stat-card">
+                <div class="stat-value"><span class="dirham-symbol">&#xea;</span> 2.41M</div>
+                <div class="stat-label">total spend</div>
+              </div>
+              <div class="stat-card is-success">
+                <div class="stat-value">98.2%</div>
+                <div class="stat-label">on-time approvals</div>
+              </div>
+              <div class="stat-card is-warning">
+                <div class="stat-value u-mono">37</div>
+                <div class="stat-label">pending review</div>
+              </div>
+              <div class="stat-card is-danger">
+                <div class="stat-value u-mono">5</div>
+                <div class="stat-label">rejected</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Buttons, segmented, badges -->
+          <section class="section">
+            <p class="u-label">Components</p>
+            <h2>Buttons · selection · badges</h2>
+            <p class="sub">One green primary, one violet secondary. The <code>.segmented</code> control is this system's signature (it replaced the precise/strategic mode toggle).</p>
+
+            <div class="card stack" style="margin-bottom:var(--space-4)">
+              <div class="row-wrap" style="gap:var(--space-2)">
+                <button class="btn btn-primary">Primary</button>
+                <button class="btn btn-secondary">Secondary</button>
+                <button class="btn btn-subtle">Subtle</button>
+                <button class="btn btn-ghost">Ghost</button>
+                <button class="btn btn-danger">Danger</button>
+                <button class="btn btn-primary btn-pill">Pill</button>
+                <button class="btn btn-primary btn-sm">Small</button>
+                <button class="btn btn-primary btn-lg">Large</button>
+              </div>
+              <div class="row-wrap" style="gap:var(--space-4);align-items:center">
+                <div class="segmented" role="group">
+                  <button class="segmented-opt is-active"><span class="dot dot-primary"></span>Precise</button>
+                  <button class="segmented-opt alt"><span class="dot dot-secondary"></span>Strategic</button>
+                </div>
+                <button class="toggle is-on">✓ Latest only</button>
+                <div class="tabs"><button class="tab is-active">Overview</button><button class="tab">Sources</button></div>
+              </div>
+              <div class="row-wrap" style="gap:var(--space-3)">
+                <span class="badge badge-primary">Active</span>
+                <span class="badge badge-secondary">Advisory</span>
+                <span class="badge badge-success">Approved</span>
+                <span class="badge badge-warning">Pending</span>
+                <span class="badge badge-danger">Rejected</span>
+                <span class="badge badge-neutral">Draft</span>
+                <span class="badge badge-pill badge-primary"><span class="dot dot-primary"></span>Online</span>
+                <span class="tag">new</span>
+                <span class="chip"><span>📄 spec.pdf</span><span class="chip-remove">×</span></span>
+                <span class="index-badge">7</span>
+                <span class="avatar">HA</span>
+              </div>
+            </div>
+
+            <!-- Form + detail sheet trigger -->
+            <div class="grid grid-2">
+              <div class="card stack">
+                <div class="field">
+                  <span class="label">Project name</span>
+                  <input class="input" value="D2D Autonomous Transformation" />
+                </div>
+                <div class="field">
+                  <span class="label">Status</span>
+                  <select class="select"><option>In progress</option><option>Blocked</option><option>Shipped</option></select>
+                </div>
+                <div class="field">
+                  <span class="label">Notes</span>
+                  <textarea class="textarea" rows="3">Replacing human-heavy D2D with an agentic system.</textarea>
+                </div>
+                <div class="row-wrap" style="justify-content:flex-end;gap:var(--space-2)">
+                  <button class="btn btn-ghost">Cancel</button>
+                  <button class="btn btn-primary">Save</button>
+                </div>
+              </div>
+
+              <div class="card stack">
+                <div class="card-head"><span class="card-title">Detail panel</span><span class="card-sub">slides in</span></div>
+                <p class="u-muted" style="font-size:var(--text-sm)">This system uses edge sheets, never center modals — they keep your place.</p>
+                <div class="alert alert-info">ℹ Click below to open the real sliding sheet.</div>
+                <button class="btn btn-secondary btn-block" onclick="document.getElementById('sheet').style.display='flex'">Open side sheet →</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Data: table + bars -->
+          <section class="section">
+            <p class="u-label">Data</p>
+            <h2>Invoice ledger</h2>
+            <p class="sub">Report-grade table with right-aligned mono figures and status badges, beside a minimal bar chart.</p>
+            <div class="grid grid-2">
+              <table class="table-card">
+                <thead><tr><th>Vendor</th><th>Ref</th><th class="num">Amount</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td>Emirates Steel</td><td class="u-mono">INV-20481</td><td class="num u-mono"><span class="dirham-symbol">&#xea;</span> 184,200</td><td><span class="badge badge-success">approved</span></td></tr>
+                  <tr><td>Al Naboodah</td><td class="u-mono">INV-20492</td><td class="num u-mono"><span class="dirham-symbol">&#xea;</span> 56,750</td><td><span class="badge badge-warning">pending</span></td></tr>
+                  <tr><td>Siemens Energy</td><td class="u-mono">INV-20510</td><td class="num u-mono"><span class="dirham-symbol">&#xea;</span> 12,400</td><td><span class="badge badge-danger">rejected</span></td></tr>
+                  <tr><td>Ducab</td><td class="u-mono">INV-20533</td><td class="num u-mono"><span class="dirham-symbol">&#xea;</span> 98,000</td><td><span class="badge badge-secondary">review</span></td></tr>
+                </tbody>
+              </table>
+
+              <div class="card">
+                <div class="card-head"><span class="card-title">Spend</span><span class="card-sub">last 7d</span></div>
+                <div class="bars">
+                  <div class="bar-col"><div class="bar" style="height:30px"></div><div class="bar-label">M</div></div>
+                  <div class="bar-col"><div class="bar" style="height:52px"></div><div class="bar-label">T</div></div>
+                  <div class="bar-col"><div class="bar" style="height:44px"></div><div class="bar-label">W</div></div>
+                  <div class="bar-col"><div class="bar" style="height:70px"></div><div class="bar-label">T</div></div>
+                  <div class="bar-col"><div class="bar alt" style="height:84px"></div><div class="bar-label">F</div></div>
+                  <div class="bar-col"><div class="bar" style="height:60px"></div><div class="bar-label">S</div></div>
+                  <div class="bar-col"><div class="bar" style="height:38px"></div><div class="bar-label">S</div></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Palette -->
+          <section class="section">
+            <p class="u-label">Foundations</p>
+            <h2>Semantic palette</h2>
+            <p class="sub">Components only ever touch the semantic layer — re-point these aliases and everything re-tints (the dark toggle does exactly that).</p>
+            <div class="grid grid-4">
+              <div><div class="swatch" style="background:var(--color-bg)"></div><div class="swatch-label">--color-bg</div></div>
+              <div><div class="swatch" style="background:var(--color-surface-sunken)"></div><div class="swatch-label">--surface-sunken</div></div>
+              <div><div class="swatch" style="background:var(--color-text)"></div><div class="swatch-label">--color-text</div></div>
+              <div><div class="swatch" style="background:var(--color-text-subtle)"></div><div class="swatch-label">--text-subtle</div></div>
+              <div><div class="swatch" style="background:var(--color-primary)"></div><div class="swatch-label">--color-primary</div></div>
+              <div><div class="swatch" style="background:var(--color-secondary)"></div><div class="swatch-label">--color-secondary</div></div>
+              <div><div class="swatch" style="background:var(--color-warning-strong)"></div><div class="swatch-label">--color-warning</div></div>
+              <div><div class="swatch" style="background:var(--color-danger)"></div><div class="swatch-label">--color-danger</div></div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- side sheet (the system's detail-panel pattern) -->
+  <div class="scrim to-right" id="sheet" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+    <aside class="sheet">
+      <header class="sheet-head"><h3>D2D Autonomous</h3><button class="sheet-close" onclick="document.getElementById('sheet').style.display='none'">×</button></header>
+      <div class="sheet-body stack">
+        <div class="row-wrap" style="gap:var(--space-2)">
+          <span class="badge badge-primary">strategic</span>
+          <span class="badge badge-success">active</span>
+        </div>
+        <div><span class="label">Summary</span><p>Agentic-native pipeline. Claude Code + DAK + MCP over low-code.</p></div>
+        <div class="spread"><span class="label">Budget</span><span class="u-mono"><span class="dirham-symbol">&#xea;</span> 480,000</span></div>
+        <div class="card prose"><p>Detail panels slide in from the edge — they preserve context instead of yanking focus to the center.</p></div>
+        <button class="btn btn-primary btn-block">Open project ↗</button>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const r = document.documentElement;
+      r.setAttribute('data-theme', r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    }
+  </script>
+</body>
+</html>

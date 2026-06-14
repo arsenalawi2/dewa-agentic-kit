@@ -184,11 +184,11 @@ Use EZ Design System tokens. Key rules:
 
 - **Content typography** — `font-family: var(--font-sans)` for body; headings inherit `var(--font-display)`. Base size 15px, line-height 1.65, max-width 860px.
 - **Headings** — `h2` (section titles) at 28px with 56px top margin and a 1px bottom border. `h3` (sub-sections) at 18px with 36px top margin.
-- **Tables** — `border-collapse: collapse`, header row uses `var(--bg-secondary)` with uppercase 11px Space Grotesk labels, rows have `var(--border-light)` bottom borders, row hover uses `var(--bg-hover)`.
+- **Tables** — `border-collapse: collapse`, header row uses `var(--bg-secondary)` with uppercase 11px display-font labels, rows have `var(--border-light)` bottom borders, row hover uses `var(--bg-hover)`.
 - **Code blocks** — `var(--bg-secondary)` background, `var(--font-mono)` at 12px, 12px padding, 8px radius.
 - **Inline code** — same font, `var(--bg-tertiary)` background, 2px/6px padding, 4px radius.
 - **Mermaid block** — full width up to the container, `var(--bg-secondary)` background, 1px `var(--border-light)` border, 20px padding, 12px radius, horizontal scroll on overflow.
-- **Sidebar** — 260px wide, sticky, full height. Brand block on top, ToC in the middle, metadata at the bottom. ToC links: 13px Space Grotesk, `var(--text-secondary)`, hover → `var(--text-primary)`, active → `var(--text-accent)` with `var(--bg-accent)` background and 3px left border in accent green.
+- **Sidebar** — 260px wide, sticky, full height. Brand block on top, ToC in the middle, metadata at the bottom. ToC links: 13px display font, `var(--text-secondary)`, hover → `var(--text-primary)`, active → `var(--text-accent)` with `var(--bg-accent)` background and 3px left border in accent green.
 - **Status labels** — detect `[Pending]`, `[In Progress]`, `[Complete]`, `[Deferred]`, `[Blocked]`, `[Mitigated]`, `[Resolved]`, `[Open]` etc. in the rendered HTML and wrap them in styled spans. Simple approach: post-process the `html` string with a regex replacement before assigning it to `v-html`. The pill uses `var(--bg-accent)` for complete/mitigated, warm amber for in-progress, muted gray for pending/deferred.
 
 ```javascript

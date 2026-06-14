@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#
+# dak — the DAK command dispatcher.
+#
+# This is the single entry point the docs advertise (`dak init <name>`).
+# It routes to the individual dak-* tools that live alongside it in
+# ~/.claude/bin. Adding ~/.claude/bin to PATH (push_stats.py does this
+# automatically on the fleet) makes every subcommand runnable as `dak <x>`.
+#
+# Subcommands:
+#   init <name> [dir]   scaffold a new project        (dak-init)
+#   add-model <Name>    add a SQLAlchemy model + CRUD (dak-add-model)
+#   doctor              first-run health check        (dak-doctor)
+#   sync                refresh kit files             (dak-sync)
+#   version             print the installed DAK version
+#   help                this message
+set -euo pipefail
+
+BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION_FILE="$HOME/.claude/.dak_version"
+
+usage() {
+  cat <<'EOF'
+dak — DAK command dispatcher
+
+Usage:
+  dak init <name> [target-dir]   Scaffold a new DAK project
+  dak add-model <Name>           Add a model + service + CRUD router to this project
+  dak doctor                     Check this project / machine is ready to run
+  dak sync                       Refresh kit files from the design system
+  dak version                    Print the installed DAK version
+  dak help                       Show this message
+EOF
+}
+
+run() {
+  local tool="$BIN/$1"; shift
+  if [[ ! -x "$tool" ]]; then
+    echo "dak: '$tool' not found or not executable (kit may be mid-update)" >&2
+    exit 127
+  fi
+  exec "$tool" "$@"
+}
+
+cmd="${1:-help}"; shift || true
+case "$cmd" in
+  init)              run dak-init "$@" ;;
+  add-model|model)   run dak-add-model "$@" ;;
+  doctor|check)      run dak-doctor "$@" ;;
+  sync)              run dak-sync "$@" ;;
+  version|-v|--version)
+    if [[ -f "$VERSION_FILE" ]]; then echo "DAK $(cat "$VERSION_FILE")"; else echo "DAK (version unknown)"; fi ;;
+  help|-h|--help)    usage ;;
+  *) echo "dak: unknown command '$cmd'" >&2; echo >&2; usage >&2; exit 1 ;;
+esac
