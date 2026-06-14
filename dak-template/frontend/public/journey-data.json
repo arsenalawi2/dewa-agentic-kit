@@ -1,9 +1,15 @@
 {
+  "schema_version": 1,
+  "project_name": "My Project",
+  "tagline": "One-line description of what this project does and why it matters.",
+  "updated_at": "2026-06-14T00:00:00Z",
+  "hero_stats": [],
   "phases": [
     {
       "number": 1,
       "title": "Project scaffolded",
       "body": "Started from the DAK template via `dak init`. Vue 3 + FastAPI + Postgres + Docker, with the four auto-pages wired from day one."
     }
-  ]
+  ],
+  "features": []
 }

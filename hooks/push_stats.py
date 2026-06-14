@@ -116,7 +116,12 @@ def _is_after_hours(ts):
 # created_utc, scaffold_kit_version, ports) + intent from PROJECT.md YAML
 # front-matter (status, goal, domain, audience). Additive; lets the leaderboard
 # key on a UUID and finally answer "what is each project, and why".
-SCRIPT_VERSION = "2.10.0"
+# 2.11.0: journey-schema unification — JOURNEY_DEFAULT_SHAS is now a SET of the
+# new unified default (schema_version 1: phases spine + optional rich blocks) AND
+# the pre-3.6 {phases} default, so placeholder detection is rollout-skew-tolerant
+# (push_stats self-updates before the kit zip) and pre-3.6 default projects stay
+# correctly flagged. Lockstep with the kit default-file change.
+SCRIPT_VERSION = "2.11.0"
 PLAYER_NAME = os.environ.get("PLAYER_NAME", "")
 LEADERBOARD_URL = os.environ.get("LEADERBOARD_URL", "https://leaderboard.hadismac.com")
 PUSH_INTERVAL = int(os.environ.get("PUSH_INTERVAL", "300"))
@@ -536,7 +541,15 @@ def detect_project_description(proj_name):
 # Cheap, truthful flags about whether a project's narrative docs are still the
 # scaffold default (placeholder) and how long since they were touched. Lets the
 # leaderboard surface real docs vs fossils — and lets Claude offer to fill them.
-JOURNEY_DEFAULT_SHA = "80fa17317c8b0d10aa15a4a475cf0431a0fbb39a91a792c352881abf1fafac14"
+# Known scaffold-default journey-data.json shas. A project whose file matches
+# ANY of these is an untouched placeholder. Multiple entries keep the rollout
+# skew-tolerant (self_update swaps push_stats BEFORE the kit zip, so a machine
+# briefly has the new sha but old-default projects) AND keep pre-3.6 default
+# files correctly flagged as placeholders.
+JOURNEY_DEFAULT_SHAS = frozenset({
+    "557e0bf253b6ea7bfbe27f6013ff6ef8af240800406b455a7290c840c1540b7a",  # 3.6 unified default
+    "80fa17317c8b0d10aa15a4a475cf0431a0fbb39a91a792c352881abf1fafac14",  # pre-3.6 {phases} default
+})
 PROJECT_MD_PLACEHOLDER_MARKERS = (
     "One-line description of what this project does. Replace this.",
     "Fill in what this project is trying to achieve",
@@ -566,7 +579,7 @@ def collect_doc_flags(project_dir):
         if journey is not None:
             raw = journey.read_bytes()
             flags["journey_is_placeholder"] = (
-                hashlib.sha256(raw).hexdigest() == JOURNEY_DEFAULT_SHA
+                hashlib.sha256(raw).hexdigest() in JOURNEY_DEFAULT_SHAS
             )
             flags["journey_mtime_days"] = int((time.time() - journey.stat().st_mtime) / 86400)
 

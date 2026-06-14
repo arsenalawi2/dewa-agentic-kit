@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3400",
     "lint": "eslint .",
-    "test": "vitest"
+    "test": "vitest",
+    "validate:journey": "node scripts/validate-journey.mjs"
   },
   "dependencies": {
     "vue": "^3.5.0",
