@@ -11,7 +11,8 @@ design-system/
 ├── base.css          Reset + webfont + global document typography + utilities (.prose, .container, .u-label, .dirham-symbol, …)
 ├── components.css    Reusable class library (.btn, .card, .badge, .segmented, .sheet, .table, …)
 ├── fonts/            UAESymbol webfont (woff2/woff/ttf) — the UAE Dirham glyph, shipped so currency is self-contained
-├── components/       Optional framework adjuncts — Icon.vue (<Icon name> SVG icon set), Aed.vue (<Aed :value> currency), Sparkline.vue (inline trend SVG)
+├── components/       Optional Vue adjuncts — Icon.vue (<Icon name> SVG icons), Aed.vue (<Aed :value> currency), Sparkline.vue (inline trend SVG),
+│                      Chart.vue + chart-theme.js (token-themed Chart.js), motion.js (motion-v presets). Charts/motion need peer deps — see below.
 ├── preview.html      Living styleguide — open in a browser; doubles as the visual contract
 ├── showcase.html     App-shell demo — hover-expand rail + topbar + KPIs + table + sheet, the dashboard pattern in action
 └── DESIGN_SYSTEM.md  This document
@@ -112,6 +113,8 @@ Tokens come in three layers. **Components only ever touch the semantic layer**, 
 
 `--dur-base 0.12s` is the default; `--dur-panel 0.18s` for sliding sheets; `--ease-out` everywhere. Keyframes provided: `spin`, `dot-pulse`, `fade`, `slide-in-right/left`. All respect `prefers-reduced-motion`.
 
+**JS motion (optional) — `components/motion.js`.** For interactive motion beyond CSS keyframes (spring/gesture/layout/presence), the kit ships **motion-v presets** pinned to these exact tokens, so motion stays *quiet* (no bounce/overshoot). `npm i motion-v`, then `import { riseIn, slideInRight, pressable, popIn } from "@ds/components/motion.js"` and spread onto a `<motion.*>` element (`<motion.div v-bind="riseIn">`). Presets: `fade`, `riseIn` (cards/rows), `slideInRight/Left` (panels — EZ prefers panels over modals), `popIn` (dialog/toast), `pressable`/`hoverLift` (interaction), `stagger(i)` (lists). Raw building blocks (`EZ_EASE`, `tFast/tBase/tPanel`, `springQuiet`) are exported too. motion-v does **not** auto-honor reduced motion — keep base.css's `prefers-reduced-motion` guard, or gate with motion-v's `useReducedMotion()`.
+
 ### Z-index & layout
 
 Named ladder: `--z-sticky 50` · `--z-backdrop 90` · `--z-nav 100` · `--z-panel 200` · `--z-dropdown 300` (menus open above sheets) · `--z-modal 1000` · `--z-toast 1100` (a toast must survive an open modal) · `--z-tooltip 1200` (tooltips beat everything). Layout widths: `--layout-rail 64` (collapsed icon rail), `--layout-sidebar 240`, `--layout-reading 760`, `--layout-container 1100`, `--layout-sheet 560`. Breakpoints `--bp-sm 640`, `--bp-md 768`.
@@ -119,6 +122,17 @@ Named ladder: `--z-sticky 50` · `--z-backdrop 90` · `--z-nav 100` · `--z-pane
 ### Chart tokens
 
 Charts use the **sanctioned categorical sequence** `--chart-1 … --chart-6`, plus `--chart-grid` (axes/gridlines) and `--chart-label` (axis text) — all dark-theme aware. Feed them to any library (Chart.js, echarts, d3, recharts, plain SVG) via `getComputedStyle(document.documentElement).getPropertyValue('--chart-1')` or inline `var()` in SVG. Never hand-pick hexes in app code.
+
+**Chart.js adjunct (optional) — `components/Chart.vue` + `components/chart-theme.js`.** The kit ships a ready bridge so charts inherit the tokens above with zero hex-picking. `npm i chart.js`, then:
+
+```vue
+import Chart from "@ds/components/Chart.vue"
+<Chart type="line"     :data="{ labels, datasets:[{label:'Opus', data:[…]}] }" :y-format="v => v+'B'" />
+<Chart type="doughnut" :data="{ labels:['Opus','Sonnet','Haiku'], datasets:[{ data:[52,33,15] }] }" />
+<Chart type="bar"      :data="…" :legend="false" />   <!-- single metric → one accent -->
+```
+
+`<Chart>` auto-colors datasets from `--chart-1…6`, applies clean defaults (hairline grid, no plot border, tabular-mono ticks, card tooltip, point-style legend), and **re-themes itself on light/dark switch** (it watches `<html>` for `class`/`data-theme`). Pass your own dataset colors or an `options` object to override. For vanilla (non-Vue) charts, import `chartColors()` + `chartBase()` from `chart-theme.js` and hand them to Chart.js directly. **Convention:** categorical palette for category *identity* (series/segments); a single accent (`--color-primary`) for a single-metric comparison (one green bar set) — don't rainbow a single metric.
 
 ---
 
@@ -145,7 +159,7 @@ All in `components.css`. Grouped; see `preview.html` for every variant rendered.
 - **Auth** — `.auth-shell` (centered viewport) + `.auth-card` + `.auth-brand`; error slot is an `.alert.alert-danger`, fields are normal `.field` blocks, submit is `.btn-primary.btn-block`. Stop rebuilding login screens.
 - **Empty state** — `.empty` + `.empty-icon/-title/-sub`.
 - **Icons** — `components/Icon.vue` is a dependency-free SVG line-icon set: `<Icon name="home" />` (24×24, `currentColor`, stroke 1.5, sizes via the `size` prop). Names: `home flag layers code clipboard dashboard chart users settings search file database bell inbox plus check close chevron sun moon spark`. Use these for nav/rail icons — **not** Unicode glyphs. Add an icon by appending a name→paths entry in `Icon.vue`.
-- **Vue adjuncts** (optional, in `components/`) — `<Icon name>` (SVG icons), `<Aed :value>` (currency), `<Sparkline :values="[…]">` (inline trend SVG on `--chart-1`).
+- **Vue adjuncts** (optional, in `components/`) — `<Icon name>` (SVG icons), `<Aed :value>` (currency), `<Sparkline :values="[…]">` (inline trend SVG on `--chart-1`), `<Chart type :data>` (token-themed Chart.js — needs `npm i chart.js`), and `motion.js` presets (quiet motion-v transitions — needs `npm i motion-v`). The two engine-backed adjuncts are the only parts of the kit with peer dependencies; everything else is dependency-free. See Foundations → Motion / Chart tokens.
 
 ---
 
