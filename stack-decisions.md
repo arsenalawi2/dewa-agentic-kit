@@ -8,14 +8,15 @@ Read this when a project's requirement smells non-standard. Most "need more" cas
 
 | Requirement | Kit answer | Deviate? |
 |---|---|---|
-| Standard web app | Vue 3 + Vite + Vue Router | ✅ kit |
-| Static marketing site | Vue 3 + Vite SSG (`vite-plugin-ssg`) or Astro with Vue components | ✅ kit (Vite SSG preferred) |
-| Content-heavy site with CMS | Vue + a headless CMS (Strapi / Sanity / Directus) | ✅ kit |
-| Real-time collaborative editing | Vue + FastAPI WebSockets + Yjs/CRDT library | ✅ kit |
+| Standard web app | React 19 + Vite + React Router (`createHashRouter`) | ✅ kit |
+| Static marketing site | React 19 + Vite SSG (`vite-react-ssg`) or Astro with React components | ✅ kit (Vite SSG preferred) |
+| Content-heavy site with CMS | React + a headless CMS (Strapi / Sanity / Directus) | ✅ kit |
+| Real-time collaborative editing | React + FastAPI WebSockets + Yjs/CRDT library | ✅ kit |
+| Maintaining an existing Vue/EZ app | Vue 3 + EZ Design System — **legacy, existing projects only** | ⚠ legacy — never for NEW apps |
 | Mobile app | **React Native** or **Flutter** | ⚠ deviate — kit is web-only |
-| Desktop app | **Electron** wrapping the Vue app, or **Tauri** (Rust core + Vue UI) | ⚠ partial — UI stays Vue, wrapper deviates |
+| Desktop app | **Electron** wrapping the React app, or **Tauri** (Rust core + React UI) | ⚠ partial — UI stays React, wrapper deviates |
 | VSCode extension | **VSCode API** — not DAK | ⚠ deviate |
-| Browser extension | Vue + `vite-plugin-web-extension` | ✅ kit |
+| Browser extension | React + `vite-plugin-web-extension` | ✅ kit |
 
 ### Backend
 
@@ -65,6 +66,7 @@ Read this when a project's requirement smells non-standard. Most "need more" cas
 ## Things that NEVER justify deviation
 
 - "I'm more familiar with X" — familiarity is a 1-hour problem, stack drift is a 1-year problem.
+- "I'd rather build the frontend in Vue" — Vue/EZ is legacy; new apps are React 19 + Astryx + the DEWA theme. Vue is only for maintaining existing projects.
 - "X is newer / trendier" — the kit is the stable choice on purpose.
 - "It's a quick prototype" — prototypes become production 80% of the time. Build on the kit.
 - "We don't need Docker for this" — yes you do.

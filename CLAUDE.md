@@ -6,11 +6,11 @@ DAK is designed so any engineer can start any project and get a working, observa
 
 ## Tech Stack (read ~/.claude/stack.md for details)
 
-- **Frontend:** Vue 3 + Vite + Vue Router (NOT static HTML, NOT React unless asked)
+- **Frontend:** React 19 + Vite + React Router (`createHashRouter`) (NOT static HTML; NOT Vue for NEW apps — Vue/EZ is LEGACY, kept only for maintaining existing projects)
 - **Backend:** FastAPI + SQLAlchemy 2 async + Pydantic (NOT Flask, NOT Express unless asked)
 - **Database:** PostgreSQL via Docker for shared apps. SQLite only for local-only tools.
-- **Styling:** EZ Design System — `~/design-system/index.css` (NOT Tailwind, NOT Bootstrap unless asked)
-- **Currency:** AED via UAESymbol font + `<Aed>` component — `~/design-system/components/Aed.vue`. Dirham is the DAK default currency everywhere.
+- **Styling:** DEWA-Astryx Design System — Astryx (`@astryxdesign/core`, MIT, React/StyleX, from npm) + the DEWA theme bundled per-project in `frontend/src/dewa/` (NOT Tailwind, NOT Bootstrap unless asked)
+- **Currency:** AED via the dirham glyph + `<Aed>` component — `frontend/src/dewa/Aed.jsx`. Dirham is the DAK default currency everywhere.
 - **Docker:** Required for every project with a database. Read ~/.claude/deploy.md for patterns.
 - **Ports:** Check `lsof -iTCP -sTCP:LISTEN` before assigning. Frontend 3xxx, Backend 8xxx, DB 54xx.
 
@@ -34,11 +34,11 @@ The stack covers ~90% of internal tools. For the 10% that genuinely needs more:
 
 Before deviating, check `~/.claude/stack-decisions.md` — common "need more" cases (realtime, ML serving, static site, mobile) have kit-compatible answers already. You'll likely find one.
 
-## Design System (read ~/design-system/DESIGN_SYSTEM.md when building UI)
+## Design System (read `frontend/src/dewa/DESIGN.md` + `@astryxdesign/core` docs when building UI)
 
-Warm neutrals (#faf9f7 bg, #23221f text), Inter for all UI text (display + body), real monospace stack for data/metrics. Green primary #0f4024 + violet secondary #6d28d9 (the parallel track — use sparingly). Sidebar-first layout — new apps use the hover-expand rail (`.app-shell.app-shell--rail`: 64px icon rail, expands on hover, no collapse button). Borders over shadows. Dark mode via `html[data-theme="dark"]` or `html.dark` — the app owns its theme, no OS auto-switch. Surfaces stay warm-tinted; pure white only as contrast text on filled color.
+DEWA-Astryx: Astryx (`@astryxdesign/core`) + the DEWA theme bundled per-project in `frontend/src/dewa/` (`theme-dewa.css` = Astryx neutral + DEWA green baked in; `dewa.css`; `currency.css`; `Aed.jsx`; `DewaLogo.jsx`; plus fonts in `public/fonts` and logo in `public/assets`). `dak init` scaffolds all of it. DEWA green **#007560** primary (Astryx `--color-accent`), cool-neutral surfaces, **Figtree** for all UI text (display + body), **JetBrains Mono** for data/metrics. Theme applied via `data-astryx-theme="dewa"` on `<html>`; light/dark via `data-astryx-mode` (`light`|`dark`) — the app owns its mode, no OS auto-switch. Components come from Astryx subpaths (`import { Button } from '@astryxdesign/core/Button'`); shell = `AppShell` + `SideNav`. Borders over shadows. Surfaces stay cool-tinted; pure white only as contrast text on filled color.
 
-**Currency:** Use `<Aed>` for all money in Vue. In raw HTML, wrap the glyph in `class="currency-aed"`. Never hardcode `$` or `AED` strings where the UAESymbol glyph could render instead.
+**Currency:** Use `<Aed>` (from `src/dewa/Aed.jsx`, e.g. `<Aed usd={n} compact />`) for all money in React. In raw HTML, wrap the glyph in `<span class="dirham">ê</span>`. Never hardcode `$` or `AED` strings where the dirham glyph could render instead.
 
 ## Code organization — tiered file size caps
 
@@ -47,7 +47,7 @@ The goal is single responsibility per file; line caps are the smoke alarm that k
 | File type | Soft cap | Why |
 |---|---|---|
 | **Function** | 50 lines | If it doesn't fit on a screen, it's doing too much |
-| **Vue SFC component** | 250 lines | Template + script + style combined |
+| **React component (JSX)** | 250 lines | Markup + logic + styles combined |
 | **Composable / util module** | 200 lines | Should do one thing |
 | **Backend service / route module** | 400 lines | Realistic for a non-trivial module |
 | **Aggregator (`app.py`, `main.py`, `index.ts`)** | 200 lines | Force routers out; aggregators should be thin |
@@ -64,7 +64,7 @@ The goal is single responsibility per file; line caps are the smoke alarm that k
 Before writing any new helper, util, or component — **grep for existing ones**. If something similar exists, extend it; don't duplicate. Search patterns:
 
 - Helpers → `grep -rn "def helperName" backend/` or `rg "export function" frontend/`
-- Components → `rg "defineComponent\|<template>" components/`
+- Components → `rg "export (default )?function\|=> \{" components/`
 - Routes → `rg "@app.get\|@app.post" backend/`
 
 Duplicated logic is the #1 source of rot in AI-assisted codebases.
@@ -74,7 +74,7 @@ Duplicated logic is the #1 source of rot in AI-assisted codebases.
 Before declaring any task "done":
 
 - [ ] Type checker passes (`mypy`, `tsc --noEmit`)
-- [ ] Lint clean (`ruff check`, `eslint .`)
+- [ ] Lint clean (`ruff check`, `eslint .` / `oxlint`)
 - [ ] Tests pass (`pytest`, `vitest`)
 - [ ] New code has corresponding tests (golden path + one edge case minimum)
 - [ ] No secrets / tokens in the diff
@@ -92,8 +92,9 @@ Skip any of these at your own peril. "It compiles" isn't "it works."
 | Git workflow | Any git operation | `~/.claude/git-workflow.md` |
 | API patterns | Building REST endpoints | `~/.claude/api-patterns.md` |
 | Deployment | Shipping to production | `~/.claude/deploy.md` |
-| Design system | Building any UI | `~/design-system/DESIGN_SYSTEM.md` |
+| Design system | Building any UI | `frontend/src/dewa/DESIGN.md` (per project) + `@astryxdesign/core` docs |
 | Security (OWASP) | Invoke `/owasp-security` | `~/.claude/skills/owasp-security/` |
+| UI migration to Astryx | "migrate this UI" / "DEWA-fy this app" | Invoke `/dewa-ui-migration` |
 | Project conventions | Starting work on a project | `CONVENTIONS.md` in repo root |
 
 ## Project Management
@@ -121,9 +122,11 @@ Every project gets four pages that auto-update:
 | `/architecture` | `public/tech-stack.json` | Leaderboard hook (scans project files) |
 | `/pm-log` | `PROJECT.md` (repo root, imported via Vite `?raw`) | You (Claude Code) — throughout the project lifecycle |
 
+The four pages are React pages in `src/pages/*.jsx`, each reading the same public JSON files.
+
 Templates: `~/.claude/templates/vibe-stats.md`, `journey.md`, `architecture.md`, `pm-log.md`
 
-**PM Log:** The `/pm-log` page renders `PROJECT.md` directly via `marked` + `mermaid` — no intermediate JSON file. Edit `PROJECT.md`, the page updates. Follow `~/.claude/templates/pm-log.md` for the Vue component structure, dependencies, and styling.
+**PM Log:** The `/pm-log` page (`src/pages/PmLog.jsx`) renders `PROJECT.md` directly via `marked` + `mermaid` — no intermediate JSON file. Edit `PROJECT.md`, the page updates. Follow `~/.claude/templates/pm-log.md` for the React component structure, dependencies, and styling.
 
 **Journey data:** After completing significant work, update `public/journey-data.json` by reading the project's code, README, and PROJECT.md. Read `~/.claude/templates/journey.md` for the JSON schema and generation rules.
 
@@ -149,11 +152,11 @@ Every DAK project ships with a FastAPI dep that validates an admin password (`DE
 - Component library default themes out of the box
 - Skip PROJECT.md or CONVENTIONS.md — both are mandatory
 - Build in an un-named or catch-all folder (home, Desktop, OneDrive, a bare `projects`/`code` dir) — scaffold a named project first (`dak init <name>`)
-- Pure black (#000) anywhere; pure white (#fff) surfaces — warm neutrals only (#fff is reserved for contrast text on filled color)
+- Pure black (#000) anywhere; pure white (#fff) surfaces — cool neutrals only (#fff is reserved for contrast text on filled color)
 - Glassmorphism, gradient text, glow borders, bounce animations
 - Modals — use slide-in panels instead
 - Hardcode stats in vibe/journey pages — read from JSON files
-- Hardcode `$` or `"AED"` strings — use `<Aed>` or the `currency-aed` class
+- Hardcode `$` or `"AED"` strings — use `<Aed>` or the `dirham` class
 - Silently deviate from the stack — state it, get approval, document in PROJECT.md
 - Append to files past their soft cap — extract first
 - Create a helper without grepping for an existing one

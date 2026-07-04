@@ -4,14 +4,16 @@ This is the opinionated tech stack for your projects. Use this unless explicitly
 
 ## Why These Choices
 
-### Frontend: Vue 3 + Vite
+### Frontend: React 19 + Vite
 
-**Why Vue 3 over React:**
-- Composition API is cleaner than hooks — no rules of hooks, no stale closures
-- `<script setup>` eliminates boilerplate — less code, same power
-- Vue Router is first-party, not a third-party dependency
-- Reactivity system is intuitive — `ref()` and `reactive()` just work
-- Smaller bundle size, faster cold starts
+**Why React 19 (Vue is now LEGACY):**
+- Astryx — the design system we standardized on — is React/StyleX. Choosing React lets us use it directly, no wrapper layer.
+- The fleet leaderboard proved the stack in production: React 19 + Vite + Astryx renders 35+ pages cleanly and fast.
+- Huge component set + first-class theming — Astryx ships dozens of accessible components with runtime theme tokens, so you build screens, not primitives.
+- React 19 features (Actions, `use`, ref-as-prop, the improved compiler story) remove most of the old boilerplate that made hooks painful.
+- Enormous ecosystem — any integration you need already has a React binding.
+
+Vue 3 + Vue Router / EZ is **LEGACY** — kept only for maintaining existing Vue projects. Do **NOT** start a new app in Vue.
 
 **Why Vite:**
 - Instant dev server startup (no bundling in dev)
@@ -21,22 +23,26 @@ This is the opinionated tech stack for your projects. Use this unless explicitly
 
 **What to use:**
 ```bash
-npm create vite@latest my-project -- --template vue
+npm create vite@latest my-project -- --template react
 cd my-project
-npm install vue-router@4
+npm install react-router-dom @astryxdesign/core
 ```
+
+Routing uses `createHashRouter` from React Router (hash routes deploy anywhere, no server rewrite rules).
 
 **Project structure:**
 ```
 frontend/
   src/
-    views/           # Page-level components (one per route)
+    app/             # Root App, router (createHashRouter), providers
+    pages/           # Page-level components (one per route) — *.jsx
     components/      # Reusable components
-    router/          # Vue Router config
-    assets/          # Static assets
-    App.vue          # Root component
-    main.js          # Entry point
+    dewa/            # DEWA-Astryx theme bundle (see Styling below)
+    lib/             # API client, helpers, hooks
+    main.jsx         # Entry point
   public/
+    fonts/           # Figtree, JetBrains Mono
+    assets/          # DEWA logo, imagery
   index.html
 ```
 
@@ -64,6 +70,7 @@ backend/
   database.py        # SQLAlchemy engine, session, base
   models.py          # SQLAlchemy ORM models
   schemas.py         # Pydantic request/response schemas
+  auth.py            # Admin-password FastAPI dep (standard primitive)
   venv/
 ```
 
@@ -211,35 +218,60 @@ cat backup.sql | docker exec -i myproject-pg psql -U dev -d myproject
 docker system df
 ```
 
-### Styling: EZ Design System
+### Styling: DEWA-Astryx Design System
 
-**Why a custom design system over Tailwind/Bootstrap:**
-- Consistent look across all your projects
-- Semantic class names that read like English, not `px-4 py-2 bg-gray-100`
-- Dark mode built in — one class toggle
-- Presentation-ready by default — no styling debt
-- One UI family (Inter), warm neutrals, green primary + violet secondary — done
+**Why Astryx + the DEWA theme over Tailwind/Bootstrap:**
+- Astryx (`@astryxdesign/core`, MIT, React/StyleX) gives a large, accessible component set out of the box — you compose screens, not primitives.
+- The **DEWA theme** bakes in the brand: DEWA green primary, cool-neutral surfaces, Figtree UI type, JetBrains Mono for data — one identity across every project.
+- Runtime theme tokens + light/dark from one attribute toggle — no Tailwind class soup, no styling debt.
+- Presentation-ready by default — consistent look across the whole fleet.
 
-**How to use** — one import (pulls tokens → base → components in order, plus Inter):
+**Where it lives** — Astryx is an npm dependency; the DEWA theme is bundled **per-project** in `frontend/src/dewa/`. `dak init` scaffolds all of it:
 
-```css
-@import '~/design-system/index.css';
+```
+frontend/src/dewa/
+  theme-dewa.css   # Astryx neutral tokens + DEWA green baked in
+  dewa.css         # DEWA layout/util styles
+  currency.css     # Dirham glyph styles (.dirham)
+  Aed.jsx          # <Aed> currency component
+  DewaLogo.jsx     # DEWA logo component
+frontend/public/fonts/    # Figtree, JetBrains Mono
+frontend/public/assets/   # DEWA logo
 ```
 
-Or copy the design-system/ directory into your project and import from there. Hand-wiring the three layers individually is also fine — order matters, tokens first (see `~/design-system/DESIGN_SYSTEM.md`).
+**Importing components** — pull from Astryx subpaths:
+```jsx
+import { Button } from '@astryxdesign/core/Button'
+```
+The app shell is `AppShell` + `SideNav`.
 
-**Currency display:** All financial values use AED with the UAE Dirham symbol font (`design-system/fonts/dirham-symbol.woff2`, loaded by base.css — use `.dirham-symbol` / `.currency-aed`, or `<Aed>` in Vue). See the Currency section of `design-system/DESIGN_SYSTEM.md`. Backend stores USD; convert on the frontend using the fixed peg rate (3.6725).
+**Applying the theme** — set the theme + mode on `<html>` (the app owns its theme; no OS auto-switch):
+```html
+<html data-astryx-theme="dewa" data-astryx-mode="light">
+```
+Toggle `data-astryx-mode` between `light` and `dark`. (NOT `html.dark`.)
+
+**Brand tokens:**
+- Primary: DEWA green **#007560** (Astryx `--color-accent`)
+- Surfaces: cool neutrals
+- UI font: **Figtree** · Data/metrics font: **JetBrains Mono**
+
+**Currency display:** All financial values use AED with the UAE Dirham glyph. Use `<Aed>` from `src/dewa/Aed.jsx` (`<Aed usd={n} compact />`), or a raw `<span class="dirham">&#234;</span>`. Backend stores USD; convert on the frontend using the fixed peg rate (3.6725). Never hardcode `$` or `AED`.
 
 ## Common Patterns
 
 ### Full-Stack Project Setup
+
+The fastest path is `dak init <name>`, which scaffolds the frontend (React + Vite + the `src/dewa/` theme bundle), backend, database, and PROJECT.md/CONVENTIONS.md in one command. The manual equivalent:
+
 ```bash
 # 1. Create project directory
 mkdir my-project && cd my-project
 
 # 2. Frontend
-npm create vite@latest frontend -- --template vue
-cd frontend && npm install vue-router@4 && cd ..
+npm create vite@latest frontend -- --template react
+cd frontend && npm install react-router-dom @astryxdesign/core && cd ..
+# (dak init also drops the DEWA theme bundle into frontend/src/dewa/)
 
 # 3. Backend
 mkdir backend && cd backend
@@ -251,10 +283,7 @@ cd ..
 # Create docker-compose.yml with PostgreSQL (see above)
 docker compose up -d
 
-# 5. Design system
-cp -r ~/design-system frontend/src/design-system
-
-# 6. Git
+# 5. Git
 git init && echo "node_modules/\nvenv/\n__pycache__/\n.env" > .gitignore
 ```
 
@@ -290,7 +319,8 @@ Always configure CORS in development. The FastAPI pattern above allows all origi
 ## What NEVER To Build
 
 - **Static HTML pages** as a "web app" — if it has more than one page, it needs a router
+- **A new app in Vue** — Vue/EZ is LEGACY, kept only for maintaining existing projects; new apps are React + DEWA-Astryx
 - **Express + EJS templates** — this is not 2015
-- **jQuery anything** — Vue handles reactivity better
-- **Inline styles everywhere** — use the design system classes
-- **Single-file monoliths** — split into views, components, and API modules
+- **jQuery anything** — React handles reactivity better
+- **Tailwind class soup / inline styles everywhere** — use Astryx components and the DEWA theme
+- **Single-file monoliths** — split into pages, components, and API modules

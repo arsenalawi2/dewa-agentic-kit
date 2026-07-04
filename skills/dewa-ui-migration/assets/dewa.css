@@ -1,0 +1,28 @@
+/* DEWA green, incorporated into the Astryx neutral theme.
+ *
+ * DEWA's live brand green (sampled from the "Enquire" button on dewa.gov.ae) is
+ * #007560. We override Astryx's accent token so primary buttons, selected nav
+ * items, links, focus rings and other accented surfaces render in DEWA green,
+ * while keeping the neutral achromatic surfaces. !important beats the theme's
+ * @scope declaration; light-dark() keeps a brighter green in dark mode. */
+:root {
+  --dewa-green: #007560;
+  --dewa-green-dark: #33c2a4;
+}
+html[data-astryx-theme] {
+  --color-accent: light-dark(#007560, #33c2a4) !important;
+  --color-accent-muted: light-dark(#e3f3ef, #0d2e28) !important;
+  --color-text-accent: light-dark(#006653, #4fd0b4) !important;
+  --color-icon-accent: light-dark(#007560, #33c2a4) !important;
+
+  /* Green / success family → DEWA green. Astryx's neutral theme ships a generic
+   * green (#c5e5c0 / #0c5700 / #007004) for `variant="green"` surfaces, `success`
+   * badges, and green text/icons — e.g. the "Fastest climber" card. Remap the
+   * whole green family to the DEWA brand green so no off-brand green shows. */
+  --color-success: light-dark(#007560, #33c2a4) !important;
+  --color-success-muted: light-dark(#e3f3ef, #0d2e28) !important;
+  --color-background-green: light-dark(#e3f3ef, #0d2e28) !important;
+  --color-border-green: light-dark(#b3ddd5, #1f5148) !important;
+  --color-icon-green: light-dark(#007560, #33c2a4) !important;
+  --color-text-green: light-dark(#006653, #4fd0b4) !important;
+}

@@ -1,0 +1,5 @@
+/* Light/dark for the DEWA-Astryx theme. Astryx tokens use light-dark(); the
+ * branch is chosen by `color-scheme`, forced per-mode via data-astryx-mode on
+ * <html> so the app owns its theme (no OS auto-switch). */
+html[data-astryx-mode="light"] { color-scheme: light; }
+html[data-astryx-mode="dark"]  { color-scheme: dark; }
