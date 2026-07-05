@@ -27,7 +27,11 @@ export default function App() {
   const [navOpen, setNavOpen] = useState(false)
   const [mode, setMode] = useState(getMode())
 
-  const go = (path) => (e) => { e.preventDefault(); navigate(path); setNavOpen(false) }
+  // { viewTransition: true } wraps the navigation in the native View Transitions
+  // API → a quiet cross-fade between pages, 0 KB, reduced-motion-safe (motion.css
+  // neutralises it under prefers-reduced-motion). For a shared-element MORPH,
+  // name the shared node on both views — see dewa/DESIGN.md → "Motion".
+  const go = (path) => (e) => { e.preventDefault(); navigate(path, { viewTransition: true }); setNavOpen(false) }
 
   const rail = (
     <SideNav header={<SideNavHeading icon={<DewaMark size={28} />} heading="{{PROJECT_NAME}}" subheading="DEWA · Astryx" />}>

@@ -9,11 +9,14 @@ import { RouterProvider } from "react-router-dom"
 //                      scoped to [data-astryx-theme="dewa"] (set on <html>)
 //  4. currency.css   — the AED dirham glyph (.dirham / <Aed>)
 //  5. themes.css     — light/dark via color-scheme (data-astryx-mode on <html>)
-//  6. app.css        — thin app-level layout glue (never re-styles Astryx comps)
+//  6. motion.css     — native motion layer (View Transitions + scroll reveals),
+//                      reduced-motion by default, 0 KB JS
+//  7. app.css        — thin app-level layout glue (never re-styles Astryx comps)
 import "@astryxdesign/core/reset.css"
 import "@astryxdesign/core/astryx.css"
 import "./dewa/theme-dewa.css"
 import "./dewa/currency.css"
+import "./dewa/motion.css"
 import "./styles/themes.css"
 import "./styles/app.css"
 

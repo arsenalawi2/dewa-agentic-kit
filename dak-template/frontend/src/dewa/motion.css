@@ -1,0 +1,83 @@
+/* DEWA-Astryx motion layer — browser-native, 0 KB of JavaScript.
+ *
+ * Covers the two motion jobs the fleet actually wants, using platform features
+ * (no animation library):
+ *   1. Route + shared-element transitions  → the View Transitions API
+ *   2. Scroll-into-view reveals            → CSS scroll-driven animations
+ *
+ * Motion is applied ONLY under `prefers-reduced-motion: no-preference`, so the
+ * safe (still) path is the default — this is the fleet's WCAG-2.3.3 guarantee,
+ * inherited by every app that imports the theme. `@supports` degrades any
+ * unsupported browser (e.g. Firefox scroll-driven) to instant, never broken.
+ *
+ * House feel: quiet, ~0.3s, ease-out, NO bounce/glow. Keep it that way.
+ */
+
+/* ── 1. View Transitions ─────────────────────────────────────────────────────
+ * Fired by React Router: navigate(path, { viewTransition: true }) or
+ * <Link viewTransition>. With no named elements you get a quiet cross-fade;
+ * name a shared element on both the old and new view (view-transition-name:
+ * dewa-morph) to get a shared-element MORPH (list card → detail hero).
+ * See DESIGN.md → "Motion" for the useViewTransitionState recipe. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-group(*) {
+    animation-duration: 0.3s;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.24s;
+  }
+}
+
+/* ── 2. Scroll-driven reveal ─────────────────────────────────────────────────
+ * Add class `dewa-reveal` to any element; it fades + rises as it scrolls into
+ * view. Pure CSS, off the main thread, zero JS. Default state is visible, so if
+ * the feature (or motion) is unavailable the content simply shows. */
+@keyframes dewa-reveal {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+.dewa-reveal { opacity: 1; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .dewa-reveal {
+      animation: dewa-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 2% cover 32%;
+    }
+  }
+}
+
+/* ── 3. <Metric> host styling (see Metric.jsx) ───────────────────────────────
+ * The animated-number component renders in Shadow DOM; font + numeric features
+ * are inherited properties, so setting them on the host styles the digits.
+ * JetBrains Mono, tabular figures — the DEWA data face. */
+.dewa-metric {
+  font-family: var(--font-family-code, ui-monospace, "JetBrains Mono", monospace);
+  font-variant-numeric: tabular-nums;
+  --number-flow-char-height: 1em;
+}
+
+/* ── 4. usePresence exit states (see usePresence.js) ─────────────────────────
+ * For a conditionally-rendered element (panel, toast) that must animate OUT
+ * before it unmounts — the one thing native transitions don't cover on stable
+ * React. The hook stamps data-motion; style the enter/exit here or per-app. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-motion] {
+    transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  [data-motion="exiting"] { opacity: 0; transform: translateY(6px); }
+}
+
+/* ── Reduced motion: hard stop for anything the browser animates by default ──
+ * View transitions cross-fade by default even without our timing rules above,
+ * so we must actively neutralise them for reduced-motion users. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation-duration: 0.01ms !important; }
+  .dewa-reveal { animation: none !important; opacity: 1 !important; transform: none !important; }
+  [data-motion] { transition: none !important; }
+}

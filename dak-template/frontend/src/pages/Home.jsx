@@ -6,6 +6,7 @@ import { Banner } from "@astryxdesign/core/Banner"
 import { VStack } from "@astryxdesign/core/VStack"
 import { Table, proportional, pixel } from "@astryxdesign/core/Table"
 import { Aed } from "../dewa/Aed.jsx"
+import { Metric } from "../dewa/Metric.jsx"
 import { useFetch } from "../lib/useFetch.js"
 
 // KPI card — the starter dashboard shape. Copy this for your own metrics.
@@ -44,9 +45,11 @@ export default function Home() {
         description="Replace this with your app. KPI cards, an items table from /api/items, and the <Aed> money component are here as a pattern to copy." />
 
       <div className="auto-grid" style={{ marginTop: "var(--spacing-5)" }}>
-        <Kpi label="Items" value={items.length} sub="from /api/items" />
-        <Kpi label="Active" value={items.filter((i) => i.status === "active").length} sub="status = active" />
-        <Kpi label="Total value" value={<Aed usd={items.reduce((s, i) => s + (i.price || 0), 0)} compact />} sub="sum of prices" />
+        {/* Dashboard numbers use <Metric> (rolls per-digit on change); money uses
+            <Aed animated>. Both respect reduced motion. Copy this for your KPIs. */}
+        <Kpi label="Items" value={<Metric value={items.length} />} sub="from /api/items" />
+        <Kpi label="Active" value={<Metric value={items.filter((i) => i.status === "active").length} />} sub="status = active" />
+        <Kpi label="Total value" value={<Aed usd={items.reduce((s, i) => s + (i.price || 0), 0)} compact animated />} sub="sum of prices" />
         <Kpi label="Theme" value="DEWA" sub="Astryx neutral + #007560" />
       </div>
 

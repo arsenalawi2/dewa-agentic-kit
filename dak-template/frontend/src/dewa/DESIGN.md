@@ -24,7 +24,11 @@ is self-contained — there is no external design-system dependency to install o
 | `theme-dewa.css` | The DEWA Astryx theme — Astryx neutral with the accent swapped to DEWA green. `@scope`d to `[data-astryx-theme="dewa"]`. |
 | `dewa.css` | Accent-only override — turn a stock-neutral Astryx app DEWA-green without a full theme swap. |
 | `currency.css` | `@font-face` for the dirham glyph + the `.dirham` / `.aed` classes. |
-| `Aed.jsx` | `<Aed>` money component + `<Dh />` (bare glyph). |
+| `Aed.jsx` | `<Aed>` money component + `<Dh />` (bare glyph). `animated` prop rolls the number. |
+| `Metric.jsx` | `<Metric>` — animated rolling number for KPI / dashboard figures (wraps NumberFlow). |
+| `motion.css` | Native motion layer — View Transitions + scroll-reveal + reduced-motion, 0 KB JS. |
+| `useReducedMotionSafe.js` | Hook — live `prefers-reduced-motion` boolean for JS branching. |
+| `usePresence.js` | Hook — animate a conditionally-rendered element OUT before it unmounts. |
 | `DewaLogo.jsx` | `<DewaLogo />` wordmark + `<DewaMark />` compact green chip (rails / favicons). |
 
 The dirham font lives in `public/fonts`; the logo in `public/assets`.
@@ -41,6 +45,71 @@ import { Aed } from './dewa/Aed.jsx'
 ```
 In raw HTML (not React), wrap the glyph directly: `<span class="dirham">ê</span>`.
 `currency.css` must be loaded for the glyph to resolve (the template loads it in `main.jsx`).
+
+## Motion
+
+Motion is **browser-native and reduced-motion-first**. There is no animation library
+in the kit floor — the platform now covers the two jobs the fleet wants, at 0 KB, and
+`prefers-reduced-motion` is honoured by default (see `motion.css`). Keep it quiet:
+short (~0.3s), ease-out, **no bounce / glow**.
+
+**Dashboard numbers → `<Metric>`. Money → `<Aed animated>`.** Any KPI-card or dashboard
+figure should roll rather than pop. Both respect reduced motion and render in Shadow DOM
+(no StyleX collision). `<Metric>` (and thus NumberFlow) is tree-shaken out of apps that
+never use it.
+
+```jsx
+import { Metric } from './dewa/Metric.jsx'
+<Metric value={41200000} />                            // 41,200,000  (rolls per digit)
+<Metric value={0.92} format={{ style: 'percent' }} />  // 92%
+<Metric value={hrs} suffix=" h" />                     // 318 h
+<Aed aed={512400} animated />                           // ê 512,400   (money, rolls)
+```
+
+**Route transitions** are automatic: navigate with the View Transitions flag and pages
+cross-fade quietly (already wired in `App.jsx`):
+
+```jsx
+navigate(path, { viewTransition: true })   // imperative
+<Link to={path} viewTransition>…</Link>    // declarative
+```
+
+**Shared-element morph** (a list card that *morphs* into its detail hero) — name the same
+element on both views, only during the transition, via `useViewTransitionState`:
+
+```jsx
+import { Link, useViewTransitionState } from 'react-router-dom'
+function Card({ to, title }) {
+  const active = useViewTransitionState(to)                 // true while morphing to `to`
+  return (
+    <Link to={to} viewTransition>
+      <h3 style={{ viewTransitionName: active ? 'dewa-morph' : 'none' }}>{title}</h3>
+    </Link>
+  )
+}
+// …and on the detail view's hero, name the matching element `dewa-morph` the same way.
+```
+
+**Scroll reveal** — add the class, that's it (pure CSS, off the main thread):
+
+```jsx
+<Card className="dewa-reveal">…</Card>   // fades + rises as it scrolls into view
+```
+
+**Exit animations** for a conditionally-rendered panel/toast (the one thing native
+transitions don't cover on stable React) — `usePresence`:
+
+```jsx
+const { mounted, motion } = usePresence(isOpen)
+return mounted && <aside data-motion={motion} className="panel">…</aside>
+```
+
+**Reduced motion** is automatic. Reach for `useReducedMotionSafe()` only when you must
+branch in JS (e.g. gate a bespoke rAF animation).
+
+> Heavier motion (a scrubbable timeline like an F1 replay, complex orchestration) is a
+> **per-project opt-in**, not a kit dependency: reach for `anime.js` (MIT, ~9 KB) in that
+> one project. Don't add Motion/anime.js to the kit floor.
 
 ## House rules
 
