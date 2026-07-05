@@ -17,6 +17,7 @@ import "@astryxdesign/core/astryx.css"
 import "./dewa/theme-dewa.css"
 import "./dewa/currency.css"
 import "./dewa/motion.css"
+import "./dewa/rail.css"
 import "./styles/themes.css"
 import "./styles/app.css"
 

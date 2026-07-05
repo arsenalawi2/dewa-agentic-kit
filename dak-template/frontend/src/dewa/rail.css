@@ -1,0 +1,39 @@
+/* Hover-overlay side rail (DEWA-Astryx) — the default menubar behavior.
+ *
+ * On hover-capable devices the SideNav sits as a narrow ICON LANE and expands as
+ * an OVERLAY on hover / keyboard-focus — the page content NEVER reflows. Astryx's
+ * `collapsible` renders icon-only vs full; this file pins the nav's lane to the
+ * icon width and floats the nav above content so expanding it overlays instead of
+ * pushing. Applied where the SideNav carries `.dewa-rail` (App.jsx adds it on
+ * hover devices; touch devices get a tap toggle + the mobile drawer instead —
+ * see App.jsx and DESIGN.md → "Navigation").
+ *
+ * Tune the collapsed lane width with --dewa-rail-lane (default 68px).
+ */
+@media (hover: hover) and (pointer: fine) {
+  /* The sidenav slot keeps a fixed icon-lane width; the nav floats within it. */
+  .astryx-layout-panel:has(.dewa-rail) {
+    flex: 0 0 var(--dewa-rail-lane, 68px) !important;
+    width: var(--dewa-rail-lane, 68px) !important;
+    min-width: 0 !important;
+    position: relative;
+    overflow: visible;
+  }
+  .dewa-rail {
+    position: absolute !important;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 60;
+    transition: width 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease;
+  }
+  /* Expanded (hover/focus) floats above content with a soft edge + shadow. */
+  .dewa-rail:hover,
+  .dewa-rail:focus-within {
+    box-shadow: 12px 0 44px -14px rgba(12, 22, 19, 0.30);
+    border-inline-end: 1px solid var(--color-border);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dewa-rail { transition: none; }
+}

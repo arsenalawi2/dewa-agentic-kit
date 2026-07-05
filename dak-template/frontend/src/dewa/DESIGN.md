@@ -27,6 +27,7 @@ is self-contained — there is no external design-system dependency to install o
 | `Aed.jsx` | `<Aed>` money component + `<Dh />` (bare glyph). `animated` prop rolls the number. |
 | `Metric.jsx` | `<Metric>` — animated rolling number for KPI / dashboard figures (wraps NumberFlow). |
 | `motion.css` | Native motion layer — View Transitions + scroll-reveal + reduced-motion, 0 KB JS. |
+| `rail.css` | Hover-overlay collapsible side rail — desktop icon lane expands as an overlay on hover; touch gets a tap toggle. |
 | `useReducedMotionSafe.js` | Hook — live `prefers-reduced-motion` boolean for JS branching. |
 | `usePresence.js` | Hook — animate a conditionally-rendered element OUT before it unmounts. |
 | `DewaLogo.jsx` | `<DewaLogo />` wordmark + `<DewaMark />` compact green chip (rails / favicons). |
@@ -110,6 +111,34 @@ branch in JS (e.g. gate a bespoke rAF animation).
 > Heavier motion (a scrubbable timeline like an F1 replay, complex orchestration) is a
 > **per-project opt-in**, not a kit dependency: reach for `anime.js` (MIT, ~9 KB) in that
 > one project. Don't add Motion/anime.js to the kit floor.
+
+## Navigation
+
+The side menu is a **hover-overlay rail by default** (`rail.css` + the wiring in
+`App.jsx`). On hover-capable devices it sits as a narrow **icon lane** and expands
+as an **overlay** on hover / keyboard-focus — the page content never reflows. Touch
+devices (no hover) get a **tap toggle** instead, and below the mobile breakpoint the
+AppShell drawer takes over. Already wired in the template `App.jsx`:
+
+- The `SideNav` carries `className="dewa-rail"` and a controlled `collapsible`
+  driven by hover/focus state.
+- `rail.css` pins the nav's lane to the icon width (`--dewa-rail-lane`, default 68px)
+  and floats the nav above content so expanding it overlays rather than pushes.
+
+**Custom footer/header content** that won't fit the collapsed lane should render only
+when expanded — gate it on the collapse context:
+
+```jsx
+import { useSideNavCollapse } from '@astryxdesign/core/SideNav'
+function ExpandedOnly({ children }) {
+  const { isCollapsed } = useSideNavCollapse()
+  return isCollapsed ? null : children
+}
+// then: <SideNav footer={<ExpandedOnly>{footerStuff}</ExpandedOnly>}>…</SideNav>
+```
+
+Tune the collapsed width with `--dewa-rail-lane`. To opt an app OUT, drop the
+`dewa-rail` class + `collapsible` prop in `App.jsx` (the sidebar stays full-width).
 
 ## House rules
 

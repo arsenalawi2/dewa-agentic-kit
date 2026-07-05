@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { AppShell } from "@astryxdesign/core/AppShell"
 import { SideNav, SideNavSection, SideNavItem, SideNavHeading } from "@astryxdesign/core/SideNav"
@@ -26,6 +26,14 @@ export default function App() {
   const navigate = useNavigate()
   const [navOpen, setNavOpen] = useState(false)
   const [mode, setMode] = useState(getMode())
+  // Hover-overlay rail (DEWA default): on hover-capable devices the menu is a
+  // narrow icon lane that expands as an OVERLAY on hover/focus (content never
+  // reflows); touch devices get a tap toggle + the mobile drawer below the breakpoint.
+  const hoverCapable = useMemo(
+    () => typeof window !== "undefined" && !!window.matchMedia?.("(hover: hover) and (pointer: fine)").matches,
+    [],
+  )
+  const [railOpen, setRailOpen] = useState(false)
 
   // { viewTransition: true } wraps the navigation in the native View Transitions
   // API → a quiet cross-fade between pages, 0 KB, reduced-motion-safe (motion.css
@@ -33,8 +41,23 @@ export default function App() {
   // name the shared node on both views — see dewa/DESIGN.md → "Motion".
   const go = (path) => (e) => { e.preventDefault(); navigate(path, { viewTransition: true }); setNavOpen(false) }
 
+  const railHoverProps = hoverCapable
+    ? {
+        onMouseEnter: () => setRailOpen(true),
+        onMouseLeave: () => setRailOpen(false),
+        onFocusCapture: () => setRailOpen(true),
+        onBlurCapture: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setRailOpen(false) },
+      }
+    : {}
+
   const rail = (
-    <SideNav header={<SideNavHeading icon={<DewaMark size={28} />} heading="{{PROJECT_NAME}}" subheading="DEWA · Astryx" />}>
+    <SideNav
+      className={hoverCapable ? "dewa-rail" : undefined}
+      collapsible={hoverCapable
+        ? { isCollapsed: !railOpen, onCollapsedChange: (c) => setRailOpen(!c), hasButton: false }
+        : { defaultIsCollapsed: false, hasButton: true, buttonLabel: "Toggle menu" }}
+      {...railHoverProps}
+      header={<SideNavHeading icon={<DewaMark size={28} />} heading="{{PROJECT_NAME}}" subheading="DEWA · Astryx" />}>
       <SideNavSection title="App">
         {NAV.map((item) => (
           <SideNavItem key={item.path} label={item.label} icon={item.icon}
