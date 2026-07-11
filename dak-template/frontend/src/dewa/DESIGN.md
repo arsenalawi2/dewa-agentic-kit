@@ -22,6 +22,8 @@ is self-contained — there is no external design-system dependency to install o
 | File | Purpose |
 |---|---|
 | `theme-dewa.css` | The DEWA Astryx theme — Astryx neutral with the accent swapped to DEWA green. `@scope`d to `[data-astryx-theme="dewa"]`. |
+| `theme-atelier.css` | The **Atelier** Astryx theme — warm ivory studio + DEWA greens + Poppins. `@scope`d to `[data-astryx-theme="atelier"]`. Alternative skin; see below. |
+| `atelier.css` | Atelier component primitives (`.a-*`): pill top-nav, section panels, pastel KPI chips, twin meters, outlined status pills, AI ask-bar. Only needed with the Atelier theme. |
 | `dewa.css` | Accent-only override — turn a stock-neutral Astryx app DEWA-green without a full theme swap. |
 | `currency.css` | `@font-face` for the dirham glyph + the `.dirham` / `.aed` classes. |
 | `Aed.jsx` | `<Aed>` money component + `<Dh />` (bare glyph). `animated` prop rolls the number. |
@@ -32,7 +34,36 @@ is self-contained — there is no external design-system dependency to install o
 | `usePresence.js` | Hook — animate a conditionally-rendered element OUT before it unmounts. |
 | `DewaLogo.jsx` | `<DewaLogo />` wordmark + `<DewaMark />` compact green chip (rails / favicons). |
 
-The dirham font lives in `public/fonts`; the logo in `public/assets`.
+The dirham font lives in `public/fonts` (plus `poppins-*.woff2` for Atelier); the logo in `public/assets`.
+
+## The Atelier theme (alternative skin)
+
+**Atelier** is the second bundled theme: a warm ivory studio dashboard look
+(extracted from a reference shot Hadi picked, 2026-07-10) carrying the same two
+DEWA greens — dark `#007560` as the exclusive action color (nav pill, buttons,
+pagination), light `#33C2A4` as the companion accent (gradients, mint chips,
+meter fills) — set in **Poppins**. Full token spec lives in the Atelier spec
+artifact: https://claude.ai/code/artifact/01a73bb4-36e3-4978-b7c0-af75c4155589
+
+To switch a project to Atelier (three edits):
+
+1. `index.html`: `data-astryx-theme="atelier"`
+2. `main.jsx`: replace the `theme-dewa.css` import with
+   `import "./dewa/theme-atelier.css"` + `import "./dewa/atelier.css"`,
+   and call `initTheme("atelier")`
+3. Keep everything else — `<Aed>`, `currency.css`, motion, rail, mode toggling — unchanged.
+
+Atelier-specific notes:
+
+- **Warm neutrals are the point.** Atelier deliberately swaps the DAK
+  cool-neutral rule for warm ivory surfaces; every other house rule still holds
+  (borders over shadows, no pure #000/#fff surfaces, both modes shipped, no modals).
+- Stock Astryx components re-skin automatically via the theme tokens; the `.a-*`
+  primitives in `atelier.css` add the signature Atelier furniture. Both work in
+  light **and** dark (`data-astryx-mode`).
+- Charts: never use `#007560` as a categorical series color (it sits a hair
+  under the chart chroma floor) — use `var(--a-chart-green)` (`#00806A`) for
+  series marks; UI chrome keeps the true brand green.
 
 ## Currency
 

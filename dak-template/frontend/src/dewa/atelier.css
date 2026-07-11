@@ -1,0 +1,143 @@
+/* @dewa/atelier — Atelier component primitives (companion to theme-atelier.css).
+ *
+ * The pieces of the Atelier design language that Astryx doesn't ship: the pill
+ * top-nav, section panels, pastel KPI chips, twin progress meters, outlined
+ * status pills, table trimmings, and the AI ask-bar. Everything is scoped to
+ * [data-astryx-theme="atelier"] and consumes Astryx theme tokens wherever one
+ * fits, so light/dark both come from the theme. Class names (.a-*) match the
+ * Atelier spec artifact 1:1.
+ *
+ * File exceeds the 200-line util cap: it is a single-responsibility design-
+ * system sheet (like theme-*.css); splitting it would scatter one concern. */
+
+[data-astryx-theme="atelier"] {
+  /* Atelier-specific tokens (everything else comes from theme-atelier.css) */
+  --a-shell: var(--color-background-body);
+  --a-panel: light-dark(#F8F5ED, #262119);
+  --a-card: light-dark(#FDFCF8, #2B261F);
+  --a-field: light-dark(#FFFEFB, #322C24);
+  --a-line: var(--color-border);
+  --a-line-soft: light-dark(#F0ECE0, #FFF8EC12);
+  --a-primary: var(--color-accent);
+  --a-on-primary: var(--color-on-accent);
+  --a-dewa-light: #33C2A4;
+  --a-chart-green: light-dark(#00806A, #4FD0B4); /* categorical chart marks only (validated) */
+  /* pastel chips ride the theme's color families */
+  --a-lav-bg: var(--color-background-purple);   --a-lav: var(--color-icon-purple);
+  --a-sky-bg: var(--color-background-blue);     --a-sky: var(--color-icon-blue);
+  --a-peach-bg: var(--color-background-orange); --a-peach: var(--color-icon-orange);
+  --a-mint-bg: var(--color-background-teal);    --a-mint: var(--color-icon-teal);
+  /* twin-meter pastels */
+  --a-bar-track: light-dark(#EBEFF6, #FFFFFF14);
+  --a-bar-sky: light-dark(#A9C9F0, #A9C9F059);
+  --a-bar-red: light-dark(#F0A9A9, #F0A9A959);
+  --a-bar-amber: light-dark(#EFD79A, #EFD79A59);
+  --a-bar-mint: light-dark(#9FE2D2, #9FE2D259); /* tint of DEWA light green #33C2A4 */
+  --a-bar-lav: light-dark(#C9C2F0, #C9C2F059);
+  --a-shadow: 0 1px 2px light-dark(rgba(64, 50, 30, .05), rgba(0, 0, 0, .25)),
+              0 12px 32px -24px light-dark(rgba(64, 50, 30, .25), rgba(0, 0, 0, .5));
+}
+
+/* ── App shell (optional page wrapper for pill-nav layouts) ───── */
+[data-astryx-theme="atelier"] .a-shell { max-width: 1240px; margin: 0 auto; background: var(--a-shell); border-radius: var(--radius-page); box-shadow: var(--a-shadow); padding: 18px 22px 26px; display: flex; flex-direction: column; gap: 18px; }
+
+/* ── Top bar: brand · pill-nav · search/actions ───────────────── */
+[data-astryx-theme="atelier"] .a-topbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+[data-astryx-theme="atelier"] .a-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; letter-spacing: .01em; min-width: 130px; }
+[data-astryx-theme="atelier"] .a-brand-mark { width: 30px; height: 30px; border-radius: 10px; background: var(--color-text-primary); color: var(--color-background-body); display: grid; place-items: center; font-size: 15px; font-weight: 600; }
+[data-astryx-theme="atelier"] .a-nav { display: flex; align-items: center; gap: 6px; background: var(--a-field); border: 1px solid var(--a-line-soft); border-radius: var(--radius-full); padding: 5px; }
+[data-astryx-theme="atelier"] .a-nav-pill { display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; font: 500 13.5px/1 var(--font-family-body); color: var(--a-on-primary); background: var(--a-primary); border-radius: var(--radius-full); padding: 10px 18px; }
+[data-astryx-theme="atelier"] .a-nav-dot { width: 38px; height: 38px; border-radius: var(--radius-full); display: grid; place-items: center; background: transparent; border: 0; cursor: pointer; color: var(--color-text-secondary); }
+[data-astryx-theme="atelier"] .a-nav-dot:hover { background: var(--a-panel); color: var(--color-text-primary); }
+[data-astryx-theme="atelier"] .a-nav-dot svg { width: 17px; height: 17px; }
+[data-astryx-theme="atelier"] .a-top-actions { display: flex; align-items: center; gap: 8px; }
+[data-astryx-theme="atelier"] .a-search { display: flex; align-items: center; gap: 8px; background: var(--a-field); border: 1px solid var(--a-line); border-radius: var(--radius-full); padding: 9px 14px; color: var(--color-text-disabled); font-size: 12.5px; min-width: 200px; }
+[data-astryx-theme="atelier"] .a-kbd { margin-left: auto; border: 1px solid var(--a-line); border-radius: 6px; padding: 1px 6px; font-size: 10.5px; color: var(--color-text-disabled); background: var(--a-panel); }
+[data-astryx-theme="atelier"] .a-icon-btn { width: 38px; height: 38px; border-radius: var(--radius-full); border: 1px solid var(--a-line); background: var(--a-field); display: grid; place-items: center; color: var(--color-text-secondary); cursor: pointer; position: relative; }
+[data-astryx-theme="atelier"] .a-icon-btn svg { width: 16px; height: 16px; }
+[data-astryx-theme="atelier"] .a-icon-btn .a-ping { position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: var(--radius-full); background: var(--color-error); border: 1.5px solid var(--a-field); }
+[data-astryx-theme="atelier"] .a-avatar { width: 38px; height: 38px; border-radius: var(--radius-full); background: var(--a-mint-bg); color: var(--a-primary); display: grid; place-items: center; font-weight: 600; font-size: 13px; border: 1px solid var(--a-line); }
+
+/* ── Section panel ────────────────────────────────────────────── */
+[data-astryx-theme="atelier"] .a-section { background: var(--a-panel); border: 1px solid var(--a-line-soft); border-radius: 20px; padding: 18px; }
+[data-astryx-theme="atelier"] .a-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+[data-astryx-theme="atelier"] .a-section-title { font-size: 16.5px; font-weight: 500; letter-spacing: .01em; }
+[data-astryx-theme="atelier"] .a-info { width: 16px; height: 16px; border-radius: var(--radius-full); border: 1.2px solid var(--color-text-disabled); color: var(--color-text-disabled); font-size: 10px; display: grid; place-items: center; font-weight: 600; }
+[data-astryx-theme="atelier"] .a-section-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+[data-astryx-theme="atelier"] .a-select { display: inline-flex; align-items: center; gap: 7px; background: var(--a-field); border: 1px solid var(--a-line); border-radius: var(--radius-full); padding: 7px 13px; font-size: 12px; color: var(--color-text-secondary); cursor: pointer; }
+[data-astryx-theme="atelier"] .a-out { width: 30px; height: 30px; border-radius: var(--radius-full); background: var(--a-field); border: 1px solid var(--a-line); display: grid; place-items: center; color: var(--color-text-secondary); cursor: pointer; }
+[data-astryx-theme="atelier"] .a-out svg { width: 13px; height: 13px; }
+
+/* ── KPI cards ────────────────────────────────────────────────── */
+[data-astryx-theme="atelier"] .a-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; }
+[data-astryx-theme="atelier"] .a-kpi { background: var(--a-card); border: 1px solid var(--a-line-soft); border-radius: var(--radius-container); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+[data-astryx-theme="atelier"] .a-kpi-top { display: flex; align-items: flex-start; gap: 10px; }
+[data-astryx-theme="atelier"] .a-chip { width: 40px; height: 40px; border-radius: var(--radius-element); display: grid; place-items: center; flex: none; }
+[data-astryx-theme="atelier"] .a-chip svg { width: 19px; height: 19px; }
+[data-astryx-theme="atelier"] .a-chip.lav { background: var(--a-lav-bg); color: var(--a-lav); }
+[data-astryx-theme="atelier"] .a-chip.sky { background: var(--a-sky-bg); color: var(--a-sky); }
+[data-astryx-theme="atelier"] .a-chip.peach { background: var(--a-peach-bg); color: var(--a-peach); }
+[data-astryx-theme="atelier"] .a-chip.mint { background: var(--a-mint-bg); color: var(--a-mint); }
+[data-astryx-theme="atelier"] .a-kpi-label { font-size: 12.5px; color: var(--color-text-secondary); font-weight: 500; }
+[data-astryx-theme="atelier"] .a-kpi-label small { color: var(--color-text-disabled); font-weight: 400; font-size: 10.5px; }
+[data-astryx-theme="atelier"] .a-kpi-value { font-size: 29px; font-weight: 500; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+[data-astryx-theme="atelier"] .a-kpi-foot { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--color-text-disabled); }
+[data-astryx-theme="atelier"] .a-delta { font-weight: 600; font-size: 11px; border-radius: var(--radius-full); padding: 2px 7px; }
+[data-astryx-theme="atelier"] .a-delta.up { color: var(--color-success); background: var(--color-success-muted); }
+[data-astryx-theme="atelier"] .a-delta.down { color: var(--color-error); background: var(--color-error-muted); }
+
+/* ── Insight cards w/ twin meters ─────────────────────────────── */
+[data-astryx-theme="atelier"] .a-insight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+[data-astryx-theme="atelier"] .a-insight { background: var(--a-card); border: 1px solid var(--a-line-soft); border-radius: var(--radius-container); padding: 14px; }
+[data-astryx-theme="atelier"] .a-insight-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-text-secondary); font-weight: 500; }
+[data-astryx-theme="atelier"] .a-insight-head svg { width: 15px; height: 15px; flex: none; }
+[data-astryx-theme="atelier"] .a-insight-num { font-size: 24px; font-weight: 500; margin: 4px 0 10px 23px; font-variant-numeric: tabular-nums; }
+[data-astryx-theme="atelier"] .a-meter-row { display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; color: var(--color-text-disabled); margin-bottom: 4px; }
+[data-astryx-theme="atelier"] .a-meter-row b { color: var(--color-text-secondary); font-weight: 600; }
+[data-astryx-theme="atelier"] .a-meter { height: 7px; border-radius: var(--radius-full); background: var(--a-bar-track); overflow: hidden; margin-bottom: 10px; }
+[data-astryx-theme="atelier"] .a-meter > i { display: block; height: 100%; border-radius: var(--radius-full); }
+
+/* ── Table trimmings ──────────────────────────────────────────── */
+[data-astryx-theme="atelier"] .a-table-wrap { overflow-x: auto; background: var(--a-card); border: 1px solid var(--a-line-soft); border-radius: var(--radius-container); }
+[data-astryx-theme="atelier"] table.a-table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 760px; }
+[data-astryx-theme="atelier"] .a-table th { text-align: left; font-weight: 500; color: var(--color-text-secondary); font-size: 12px; padding: 12px 14px; border-bottom: 1px solid var(--a-line-soft); }
+[data-astryx-theme="atelier"] .a-table td { padding: 13px 14px; border-bottom: 1px solid var(--a-line-soft); vertical-align: middle; }
+[data-astryx-theme="atelier"] .a-table tr:last-child td { border-bottom: 0; }
+[data-astryx-theme="atelier"] .a-cell-main { font-weight: 500; }
+[data-astryx-theme="atelier"] .a-cell-sub { color: var(--color-text-disabled); font-size: 11px; margin-top: 1px; font-variant-numeric: tabular-nums; }
+[data-astryx-theme="atelier"] .a-go { width: 30px; height: 30px; border-radius: var(--radius-full); background: var(--a-primary); color: var(--a-on-primary); border: 0; display: grid; place-items: center; cursor: pointer; }
+[data-astryx-theme="atelier"] .a-go svg { width: 12px; height: 12px; }
+
+/* outlined status pills */
+[data-astryx-theme="atelier"] .a-pill { display: inline-flex; align-items: center; font-size: 11px; font-weight: 500; border-radius: var(--radius-full); padding: 4px 11px; border: 1px solid; }
+[data-astryx-theme="atelier"] .a-pill.good { color: var(--color-success); background: var(--color-success-muted); border-color: var(--color-border-green); }
+[data-astryx-theme="atelier"] .a-pill.warn { color: var(--color-warning); background: var(--color-warning-muted); border-color: var(--color-border-yellow); }
+[data-astryx-theme="atelier"] .a-pill.bad { color: var(--color-error); background: var(--color-error-muted); border-color: var(--color-border-red); }
+
+/* pagination */
+[data-astryx-theme="atelier"] .a-pager { display: flex; align-items: center; gap: 6px; justify-content: center; padding: 14px; position: relative; }
+[data-astryx-theme="atelier"] .a-page-n { width: 30px; height: 30px; border-radius: var(--radius-full); display: grid; place-items: center; font-size: 12px; color: var(--color-text-secondary); background: transparent; border: 0; cursor: pointer; }
+[data-astryx-theme="atelier"] .a-page-n.on { background: var(--a-primary); color: var(--a-on-primary); font-weight: 600; }
+[data-astryx-theme="atelier"] .a-pager .a-prev { position: absolute; left: 14px; }
+[data-astryx-theme="atelier"] .a-pager .a-next { position: absolute; right: 14px; }
+[data-astryx-theme="atelier"] .a-prev, [data-astryx-theme="atelier"] .a-next { font-size: 12px; color: var(--color-text-secondary); background: none; border: 0; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+
+/* ── AI ask bar ───────────────────────────────────────────────── */
+[data-astryx-theme="atelier"] .a-ask-wrap { position: relative; display: flex; justify-content: center; padding: 6px 0 2px; }
+[data-astryx-theme="atelier"] .a-ask { position: relative; display: flex; align-items: center; gap: 10px; width: min(560px, 100%); border-radius: var(--radius-full); padding: 8px; background: linear-gradient(120deg, rgba(51, 194, 164, .22), rgba(110, 91, 208, .10) 45%, rgba(0, 117, 96, .20)); }
+[data-astryx-theme="atelier"] .a-ask-inner { flex: 1; display: flex; align-items: center; gap: 12px; background: light-dark(#24201B, #322C24); border-radius: var(--radius-full); padding: 10px 18px; color: light-dark(#B7B0A4, #A79E8F); font-size: 13px; }
+[data-astryx-theme="atelier"] .a-ask-spark { width: 30px; height: 30px; border-radius: var(--radius-full); background: radial-gradient(circle at 30% 30%, #33C2A4, #007560); display: grid; place-items: center; color: #EFFCF8; flex: none; }
+[data-astryx-theme="atelier"] .a-ask-spark svg { width: 14px; height: 14px; }
+[data-astryx-theme="atelier"] .a-ask-send { width: 40px; height: 40px; border-radius: var(--radius-full); background: var(--a-primary); border: 0; color: var(--a-on-primary); display: grid; place-items: center; cursor: pointer; flex: none; }
+[data-astryx-theme="atelier"] .a-ask-send svg { width: 15px; height: 15px; }
+[data-astryx-theme="atelier"] .a-ask-mic { width: 40px; height: 40px; border-radius: var(--radius-full); background: var(--a-field); border: 1px solid var(--a-line); color: var(--color-text-secondary); display: grid; place-items: center; flex: none; }
+[data-astryx-theme="atelier"] .a-ask-mic svg { width: 15px; height: 15px; }
+
+/* ── misc helpers ─────────────────────────────────────────────── */
+[data-astryx-theme="atelier"] .a-cols { display: grid; gap: 12px; }
+[data-astryx-theme="atelier"] .a-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11.5px; color: var(--color-text-secondary); }
+[data-astryx-theme="atelier"] .a-legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 6px; }
+@media (max-width: 720px) {
+  [data-astryx-theme="atelier"] .a-nav { order: 3; width: 100%; overflow-x: auto; }
+  [data-astryx-theme="atelier"] .a-search { min-width: 0; flex: 1; }
+}
